@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "candidate-skill-agent": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "candidate_skill_agent.main", "--protocol", "stdio"]
+    }
+  }
+}
