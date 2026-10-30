@@ -136,14 +136,12 @@ curl -i -N http://127.0.0.1:8000/sse
 ### Trying the tools/prompts in the Inspector
 
 1. Connect (any transport above), open the **Tools** tab, click **List Tools** — you should
-   see `read_document`, `extract_technical_skills`, `extract_soft_skills`,
-   `extract_certifications`, `extract_languages`.
-2. Create a scratch resume file, e.g. `echo "Jane Doe - Senior Engineer" > /tmp/resume.txt`,
-   then call `read_document` with `file_path` set to its absolute path.
-3. Call each `extract_*` tool with any `resume_path` string (they're mocked — the path isn't
+   see `extract_technical_skills`, `extract_soft_skills`, `extract_certifications`,
+   `extract_languages`.
+2. Call each `extract_*` tool with any `resume_path` string (they're mocked — the path isn't
    actually read).
-4. Open the **Prompts** tab, click **List Prompts**, then **Get Prompt** for `document_read`
-   and `coordinator_orchestration` to see the full system-prompt text each returns.
+3. Open the **Prompts** tab, click **List Prompts**, then **Get Prompt** for
+   `coordinator_orchestration` to see the full system-prompt text it returns.
 
 ## Register MCP Server for claude code
 

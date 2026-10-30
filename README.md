@@ -1,7 +1,7 @@
 # candidate-skill-agent
 
 An **MCP (Model Context Protocol) server** for resume/candidate processing, built on the
-current `mcp` SDK v2 (`MCPServer`). It ships 5 tools and 2 prompts, runnable over three
+current `mcp` SDK v2 (`MCPServer`). It ships 4 tools and 1 prompt, runnable over three
 transports (`stdio`, streamable `http`, `sse`), plus a provider-agnostic **chat-model layer**
 (LangChain + Portkey) wired for future use.
 
@@ -19,7 +19,6 @@ Requires **Python >= 3.14** and **[uv](https://github.com/astral-sh/uv)**.
 
 | Tool | Description |
 | --- | --- |
-| `read_document` | Extracts text from a resume/job posting (`.pdf`, `.docx`, `.txt`, `.md`, `.markdown`). Real implementation via `labs-agent-lib`. |
 | `extract_technical_skills` | **Mocked.** Returns a fixed technical-skills payload. |
 | `extract_soft_skills` | **Mocked.** Returns a fixed soft-skills payload. |
 | `extract_certifications` | **Mocked.** Returns a fixed certifications payload. |
@@ -32,8 +31,7 @@ tool raise once on its first call (then succeed), useful for testing retry logic
 
 | Prompt | Description |
 | --- | --- |
-| `document_read` | System prompt for an agent that calls `read_document`. |
-| `coordinator_orchestration` | System prompt for a coordinator that reads the document, then fans out all extraction tools in parallel. |
+| `coordinator_orchestration` | System prompt for a coordinator that fans out all extraction tools in parallel. |
 
 ## Setup
 

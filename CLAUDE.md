@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pieces exist today:
 
 - A **Candidate Skill Agent MCP server** (`server/mcp_server.py` + `server/tools/` +
-  `server/prompts/`) exposing 5 tools and 2 prompts, runnable over three transports
+  `server/prompts/`) exposing 4 tools and 1 prompt, runnable over three transports
   (`stdio`, streamable `http`, `sse`).
 - A **provider-agnostic chat-model layer** (`chat_model/` + `config/`) that builds a
   LangChain chat model from `.env`. This is wired for the future — the MCP server does not
@@ -66,7 +66,6 @@ of importing the package.
 
 | Tool | File | Notes |
 | --- | --- | --- |
-| `read_document` | `file_reader.py` | Real extraction via `labs_agent_lib.file_reader.extract_text` (PDF/DOCX/TXT/MD). |
 | `extract_technical_skills` | `extraction_mocks.py` | **Mocked** — fixed payload. |
 | `extract_soft_skills` | `extraction_mocks.py` | **Mocked** — fixed payload. |
 | `extract_certifications` | `extraction_mocks.py` | **Mocked** — fixed payload. |
@@ -78,9 +77,8 @@ exercising a caller's retry logic.
 
 **Prompts** (`server/prompts/`), exposed via `@mcp.prompt()`:
 
-- `document_read` — system prompt for an agent that calls `read_document`.
-- `coordinator_orchestration` — system prompt for a deterministic coordinator that reads the
-  document first, then fans out all extraction tools in parallel.
+- `coordinator_orchestration` — system prompt for a deterministic coordinator that fans out
+  all extraction tools in parallel.
 
 **Adding a tool:** decorate a function with `@mcp.tool()` in a module under `server/tools/`,
 importing `mcp` from `..mcp_server`, then import that module from `server/tools/__init__.py`
@@ -90,16 +88,15 @@ precisely. **Adding a prompt** follows the same pattern under `server/prompts/` 
 
 ### Porting notes (vs. candidate-match-agent's claude-agent-sdk tools)
 
-- One single `MCPServer("CandidateSkillAgent")` instance exposes all 5 tools — not 5 separate
+- One single `MCPServer("CandidateSkillAgent")` instance exposes all 4 tools — not 4 separate
   in-process servers like candidate-match-agent uses for the Claude Agent SDK. Tool names are
-  therefore plain (`read_document`, `extract_technical_skills`, ...), with no
-  `mcp__<server>__` prefix (that prefix is a claude-agent-sdk/in-process-server artifact).
-- Tools **raise** on error (e.g. `RuntimeError` for a simulated mock failure, or
-  `labs_agent_lib`'s own `FileNotFoundError` / `UnsupportedFileTypeError`) instead of
+  therefore plain (`extract_technical_skills`, ...), with no `mcp__<server>__` prefix (that
+  prefix is a claude-agent-sdk/in-process-server artifact).
+- Tools **raise** on error (e.g. `RuntimeError` for a simulated mock failure) instead of
   returning the claude-agent-sdk `{"content": [...], "is_error": True}` dict. `mcp` v2 turns
   an uncaught exception into a tool error automatically.
 - `coordinator_orchestration`'s tool-name references were adapted from the
-  `mcp__file-reader__read_document`-style composite names to the plain names above.
+  `mcp__<server>__extract_technical_skills`-style composite names to the plain names above.
 
 ### Chat-model layer (`config/` + `chat_model/`)
 
@@ -136,10 +133,9 @@ The default model is a Claude model served via a Portkey enterprise gateway
 
 - **`mcp[cli]>=2.3.0`** — the standalone MCP Python SDK (v2 line; v1.x is now
   security-fixes-only maintenance). `MCPServer` replaces the retired `FastMCP` name.
-- **`labs-agent-lib>=0.4.2`** — shared document text extraction (`extract_text`,
-  `SUPPORTED_EXTENSIONS`) and logging (`get_logger`), reused from `candidate-match-agent`'s
-  ecosystem instead of reimplementing PDF/DOCX parsing. **Not yet on the real PyPI** — it's
-  resolved from TestPyPI via the explicit `[tool.uv.index]` / `[tool.uv.sources]` entries in
+- **`labs-agent-lib>=0.4.2`** — shared logging (`get_logger`), reused from
+  `candidate-match-agent`'s ecosystem. **Not yet on the real PyPI** — it's resolved from
+  TestPyPI via the explicit `[tool.uv.index]` / `[tool.uv.sources]` entries in
   `pyproject.toml`, so plain `uv sync` just works for development. Anyone installing this
   package from the real PyPI with `uvx`/`pip` later will additionally need
   `--extra-index-url https://test.pypi.org/simple/` until `labs-agent-lib` graduates off
