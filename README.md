@@ -48,16 +48,6 @@ cp .env.sample .env         # then set CHAT_LLM_API_KEY (see Configuration)
 
 ## Configuration
 
-The chat-model layer reads `.env` (prefix `CHAT_LLM_`). Only the API key is required; the
-rest have sensible defaults. (It isn't called by the MCP tools yet — see CLAUDE.md.)
-
-| Variable              | Required | Default                                             |
-| --------------------- | -------- | --------------------------------------------------- |
-| `CHAT_LLM_API_KEY`    | ✅       | —                                                   |
-| `CHAT_LLM_MODEL`      |          | `@aws-bedrock-use2/us.anthropic.claude-sonnet-4-6`  |
-| `CHAT_LLM_URL`        |          | Portkey gateway URL                                 |
-| `CHAT_LLM_TEMPERATURE`|          | `0.7`                                               |
-| `CHAT_LLM_CONFIG_ID`  |          | — (Portkey config id, optional)                     |
 
 ## Run the MCP server
 
