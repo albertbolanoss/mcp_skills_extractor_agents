@@ -62,29 +62,39 @@ At the bottom of `mcp_server.py` there are two **absolute** imports —
 so this file keeps working if something points `mcp dev` directly at its file path instead
 of importing the package.
 
-**Tools** (`server/tools/`):
+**Tools** (`server/tools/`), one module per tool:
 
 | Tool | File | Notes |
 | --- | --- | --- |
-| `extract_technical_skills` | `extraction_mocks.py` | **Mocked** — fixed payload. |
-| `extract_soft_skills` | `extraction_mocks.py` | **Mocked** — fixed payload. |
-| `extract_certifications` | `extraction_mocks.py` | **Mocked** — fixed payload. |
-| `extract_languages` | `extraction_mocks.py` | **Mocked** — fixed payload. |
+| `extract_technical_skills` | `technical_skill_extraction.py` | **Mocked** — fixed payload. |
+| `extract_soft_skills` | `soft_skill_extraction.py` | **Mocked** — fixed payload. |
+| `extract_certifications` | `certification_skill_extraction.py` | **Mocked** — fixed payload. |
+| `extract_languages` | `language_skill_extraction.py` | **Mocked** — fixed payload. |
 
-Set `MOCK_FAIL_ONCE_FIELDS="technical_skills,certifications"` (comma-separated field names)
-to make the matching mocked tool raise once on its first call, then succeed — useful for
-exercising a caller's retry logic.
+`server/tools/__init__.py` imports each module conditionally based on
+`SkillAgentSettings.active_tools` (see "Tool selection" below) — only an imported module's
+`@mcp.tool()` actually registers.
 
 **Prompts** (`server/prompts/`), exposed via `@mcp.prompt()`:
 
 - `coordinator_orchestration` — system prompt for a deterministic coordinator that fans out
   all extraction tools in parallel.
 
-**Adding a tool:** decorate a function with `@mcp.tool()` in a module under `server/tools/`,
-importing `mcp` from `..mcp_server`, then import that module from `server/tools/__init__.py`
-so the decorator runs. The docstring and type hints become the tool's schema, so write them
-precisely. **Adding a prompt** follows the same pattern under `server/prompts/` with
-`@mcp.prompt()`.
+**Adding a tool:** decorate a function with `@mcp.tool()` in a new module under
+`server/tools/`, importing `mcp` from `..mcp_server`, then add it to the conditional-import
+list in `server/tools/__init__.py` (guarded by its `ToolName` member) so the decorator runs.
+The docstring and type hints become the tool's schema, so write them precisely. **Adding a
+prompt** follows the same pattern under `server/prompts/` with `@mcp.prompt()`.
+
+### Tool selection (`settings/`)
+
+`settings/settings.py` defines `SkillAgentSettings.active_tools: frozenset[ToolName] | None`,
+read from the `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` env var (accepts a comma-separated list of
+tool names, e.g. `"extract_technical_skills,extract_certifications"`, or a real JSON array).
+Unset (the default) registers every tool, which is what local development against the MCP
+Inspector wants. A future Helm chart will pin one or more values per deployed pod to restrict
+it to a subset of tools. `get_skill_agent_settings()` is an `lru_cache` singleton, mirroring
+`config/settings.py`'s `get_settings()`.
 
 ### Porting notes (vs. candidate-match-agent's claude-agent-sdk tools)
 

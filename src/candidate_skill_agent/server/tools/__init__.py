@@ -1,23 +1,37 @@
-"""Resume-extraction MCP tools: mocked skill extraction."""
+"""Resume-extraction MCP tools, one module per tool.
 
-from .extraction_mocks import (
-    extract_certifications,
-    extract_languages,
-    extract_soft_skills,
-    extract_technical_skills,
-)
+`SkillAgentSettings.active_tools` decides which of these modules get imported — and
+therefore which `@mcp.tool()` actually registers. Unset (the default) imports every
+tool, which is what local development against the MCP Inspector wants. A future Helm
+chart will set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` per deployed pod to restrict it to
+a subset of tools.
+"""
 
-EXTRACTION_TOOL_NAMES = (
-    "extract_technical_skills",
-    "extract_soft_skills",
-    "extract_certifications",
-    "extract_languages",
-)
+from candidate_skill_agent.settings import ToolName, get_skill_agent_settings
 
-__all__ = [
-    "EXTRACTION_TOOL_NAMES",
-    "extract_certifications",
-    "extract_languages",
-    "extract_soft_skills",
-    "extract_technical_skills",
-]
+_active_tools = get_skill_agent_settings().active_tools
+_registered: list[str] = []
+
+if _active_tools is None or ToolName.TECHNICAL_SKILLS in _active_tools:
+    from .technical_skill_extraction import extract_technical_skills  # noqa: F401
+
+    _registered.append(ToolName.TECHNICAL_SKILLS.value)
+
+if _active_tools is None or ToolName.SOFT_SKILLS in _active_tools:
+    from .soft_skill_extraction import extract_soft_skills  # noqa: F401
+
+    _registered.append(ToolName.SOFT_SKILLS.value)
+
+if _active_tools is None or ToolName.CERTIFICATIONS in _active_tools:
+    from .certification_skill_extraction import extract_certifications  # noqa: F401
+
+    _registered.append(ToolName.CERTIFICATIONS.value)
+
+if _active_tools is None or ToolName.LANGUAGES in _active_tools:
+    from .language_skill_extraction import extract_languages  # noqa: F401
+
+    _registered.append(ToolName.LANGUAGES.value)
+
+EXTRACTION_TOOL_NAMES: tuple[str, ...] = tuple(_registered)
+
+__all__ = ["EXTRACTION_TOOL_NAMES"]
