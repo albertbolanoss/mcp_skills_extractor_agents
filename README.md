@@ -24,8 +24,9 @@ Requires **Python >= 3.14** and **[uv](https://github.com/astral-sh/uv)**.
 | `extract_certifications` | **Mocked.** Returns a fixed certifications payload. |
 | `extract_languages` | **Mocked.** Returns a fixed spoken-languages payload. |
 
-Set `MOCK_FAIL_ONCE_FIELDS="technical_skills,certifications"` to make a mocked extraction
-tool raise once on its first call (then succeed), useful for testing retry logic.
+Set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS="extract_technical_skills,extract_soft_skills,extract_certifications,extract_languages"`
+to restrict the server to only those tools. Unset registers all 4 — see
+[CLAUDE.md](CLAUDE.md) for details.
 
 ## Prompts
 
