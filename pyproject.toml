@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
     "labs-agent-lib>=0.4.2",
+    "claude-agent-sdk>=0.2.176",
 ]
 
 [project.urls]
