@@ -30,12 +30,13 @@ management (the source of truth — `uv.lock` is committed).
 ## Commands
 
 ```sh
-uv sync                                          # Install deps + create .venv
-uv run pytest                                    # Run all tests
-uv run pytest tests/config/test_settings.py      # Run one test file
-uv run pytest tests/path::test_name              # Run a single test
-uv run ruff check                                # Lint
-uv run ruff format                               # Format
+uv sync                                                               # Install deps + create .venv
+uv run pytest                                                         # Run all tests
+uv run pytest tests/config/test_settings.py                           # Run one test file
+uv run pytest tests/path::test_name                                   # Run a single test
+uv run pytest --cov=candidate_skill_agent --cov-report=term-missing   # Run tests with coverage (100% required)
+uv run ruff check                                                     # Lint
+uv run ruff format                                                    # Format
 ```
 
 Running the MCP server (defaults: `stdio`, host `127.0.0.1`, port `8000`):
@@ -161,6 +162,7 @@ its contents.
 ## Tests
 
 Tests live under `tests/`, mirroring the package layout (`tests/config/`,
-`tests/chat_model/`, `tests/server/`). `tests/server/` covers the tools and prompts;
-`tests/config/` and `tests/chat_model/` cover the config/chat layer only (unchanged from
-`labs_mcp_server`).
+`tests/chat_model/`, `tests/server/`). `tests/server/` covers the tools, prompts and MCP
+server wiring; `tests/config/` and `tests/chat_model/` cover the config/chat layer only
+(unchanged from `labs_mcp_server`). Unit-test conventions and the 100%-coverage requirement
+are defined in `.claude/rules/testing.md`.

@@ -13,10 +13,13 @@ from candidate_skill_agent.server.tools.soft_skill_extraction import extract_sof
 class _FakeClient:
     """Fakes ClaudeSDKClient: replays queued agent text responses, one per query() call."""
 
-    def __init__(self, responses: list[str], options=None):
+    def __init__(
+        self, responses: list[str], options=None, include_non_assistant: bool = False
+    ):
         self._responses = iter(responses)
         self.options = options
         self.prompts: list[str] = []
+        self._include_non_assistant = include_non_assistant
 
     async def __aenter__(self):
         return self
@@ -28,14 +31,20 @@ class _FakeClient:
         self.prompts.append(prompt)
 
     async def receive_response(self):
+        if self._include_non_assistant:
+            yield object()
         yield AssistantMessage(
             content=[TextBlock(text=next(self._responses))], model="sonnet"
         )
 
 
-def _mock_agent(monkeypatch, responses: list[str]) -> None:
+def _mock_agent(
+    monkeypatch, responses: list[str], include_non_assistant: bool = False
+) -> None:
     monkeypatch.setattr(
-        module, "ClaudeSDKClient", lambda options=None: _FakeClient(responses, options)
+        module,
+        "ClaudeSDKClient",
+        lambda options=None: _FakeClient(responses, options, include_non_assistant),
     )
     monkeypatch.setattr(
         module, "get_agent_environment", lambda settings: SimpleNamespace(env={})
@@ -96,6 +105,30 @@ async def test_extract_soft_skills_retries_on_invalid_json(monkeypatch):
 
     # Act
     result = await extract_soft_skills("Mentors junior engineers", "resume", max_retries=1)
+
+    # Assert
+    assert result == [{"skill": "Mentoring", "seniority_level": "Mid-Level"}]
+
+
+async def test_extract_soft_skills_strips_markdown_code_fences(monkeypatch):
+    # Arrange
+    agent_json = json.dumps([{"skill": "Coaching", "seniority_level": "Mid"}])
+    _mock_agent(monkeypatch, [f"```json\n{agent_json}\n```"])
+
+    # Act
+    result = await extract_soft_skills("Mentors junior engineers", "resume")
+
+    # Assert
+    assert result == [{"skill": "Mentoring", "seniority_level": "Mid-Level"}]
+
+
+async def test_extract_soft_skills_ignores_non_assistant_messages(monkeypatch):
+    # Arrange
+    agent_json = json.dumps([{"skill": "Coaching", "seniority_level": "Mid"}])
+    _mock_agent(monkeypatch, [agent_json], include_non_assistant=True)
+
+    # Act
+    result = await extract_soft_skills("Mentors junior engineers", "resume")
 
     # Assert
     assert result == [{"skill": "Mentoring", "seniority_level": "Mid-Level"}]

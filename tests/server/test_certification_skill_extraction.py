@@ -15,10 +15,13 @@ from candidate_skill_agent.server.tools.certification_skill_extraction import (
 class _FakeClient:
     """Fakes ClaudeSDKClient: replays queued agent text responses, one per query() call."""
 
-    def __init__(self, responses: list[str], options=None):
+    def __init__(
+        self, responses: list[str], options=None, include_non_assistant: bool = False
+    ):
         self._responses = iter(responses)
         self.options = options
         self.prompts: list[str] = []
+        self._include_non_assistant = include_non_assistant
 
     async def __aenter__(self):
         return self
@@ -30,14 +33,20 @@ class _FakeClient:
         self.prompts.append(prompt)
 
     async def receive_response(self):
+        if self._include_non_assistant:
+            yield object()
         yield AssistantMessage(
             content=[TextBlock(text=next(self._responses))], model="sonnet"
         )
 
 
-def _mock_agent(monkeypatch, responses: list[str]) -> None:
+def _mock_agent(
+    monkeypatch, responses: list[str], include_non_assistant: bool = False
+) -> None:
     monkeypatch.setattr(
-        module, "ClaudeSDKClient", lambda options=None: _FakeClient(responses, options)
+        module,
+        "ClaudeSDKClient",
+        lambda options=None: _FakeClient(responses, options, include_non_assistant),
     )
     monkeypatch.setattr(
         module, "get_agent_environment", lambda settings: SimpleNamespace(env={})
@@ -103,6 +112,72 @@ async def test_extract_certifications_retries_on_invalid_json(monkeypatch):
     # Act
     result = await extract_certifications(
         "Certified Kubernetes Administrator", "resume", max_retries=1
+    )
+
+    # Assert
+    assert result == [
+        {
+            "title": "Certified Kubernetes Administrator",
+            "issuer": "Cloud Native Computing Foundation",
+            "is_active": True,
+        }
+    ]
+
+
+async def test_extract_certifications_strips_markdown_code_fences(monkeypatch):
+    # Arrange
+    agent_json = json.dumps([{"title": "CKA", "issuer": "CNCF", "is_active": True}])
+    _mock_agent(monkeypatch, [f"```json\n{agent_json}\n```"])
+
+    # Act
+    result = await extract_certifications(
+        "Certified Kubernetes Administrator", "resume"
+    )
+
+    # Assert
+    assert result == [
+        {
+            "title": "Certified Kubernetes Administrator",
+            "issuer": "Cloud Native Computing Foundation",
+            "is_active": True,
+        }
+    ]
+
+
+async def test_extract_certifications_keeps_unknown_title_as_is(monkeypatch):
+    # Arrange
+    agent_json = json.dumps(
+        [
+            {
+                "title": "Totally Made Up Cert",
+                "issuer": "Some Vendor",
+                "is_active": True,
+            }
+        ]
+    )
+    _mock_agent(monkeypatch, [agent_json])
+
+    # Act
+    result = await extract_certifications("Holds a made up cert", "resume")
+
+    # Assert
+    assert result == [
+        {
+            "title": "Totally Made Up Cert",
+            "issuer": "Some Vendor",
+            "is_active": True,
+        }
+    ]
+
+
+async def test_extract_certifications_ignores_non_assistant_messages(monkeypatch):
+    # Arrange
+    agent_json = json.dumps([{"title": "CKA", "issuer": "CNCF", "is_active": True}])
+    _mock_agent(monkeypatch, [agent_json], include_non_assistant=True)
+
+    # Act
+    result = await extract_certifications(
+        "Certified Kubernetes Administrator", "resume"
     )
 
     # Assert
