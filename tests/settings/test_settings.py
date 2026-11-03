@@ -1,0 +1,31 @@
+"""Tests for the Candidate Skill Agent settings."""
+
+from candidate_skill_agent.settings import SkillAgentSettings, ToolName
+
+
+def test_active_tools_defaults_to_none():
+    # Act
+    settings = SkillAgentSettings()
+
+    # Assert
+    assert settings.active_tools is None
+
+
+def test_active_tools_accepts_comma_separated_string():
+    # Act
+    settings = SkillAgentSettings(
+        active_tools="extract_technical_skills, extract_certifications"
+    )
+
+    # Assert
+    assert settings.active_tools == frozenset(
+        {ToolName.TECHNICAL_SKILLS, ToolName.CERTIFICATIONS}
+    )
+
+
+def test_active_tools_accepts_real_collection():
+    # Act
+    settings = SkillAgentSettings(active_tools=[ToolName.LANGUAGES])
+
+    # Assert
+    assert settings.active_tools == frozenset({ToolName.LANGUAGES})

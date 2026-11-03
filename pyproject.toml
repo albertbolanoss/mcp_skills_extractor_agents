@@ -42,12 +42,26 @@ labs-agent-lib = { index = "testpypi" }
 dev = [
     "pytest",
     "pytest-asyncio>=1.4.1",
+    "pytest-cov>=7.0.0",
     "ruff"
 ]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=candidate_skill_agent --cov-report=term-missing"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+source = ["candidate_skill_agent"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_also = [
+    "if __name__ == .__main__.:",
+]
 
 [build-system]
 requires = ["hatchling"]
