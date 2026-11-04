@@ -1,0 +1,9 @@
+apiVersion: v2
+name: mcp-skills-extractor-agents
+description: >-
+  MCP Skills Extractor Agents - resume/job-posting skill-extraction MCP server (streamable
+  HTTP transport). A release can run all extraction tools or be pinned to a subset via
+  CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS, so independent tools can be deployed as separate pods.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

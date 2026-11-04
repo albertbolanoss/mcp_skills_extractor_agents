@@ -45,7 +45,10 @@ _AGENT_DEFINITION = AgentDefinition(
         "Extracts canonical soft skills, seniority level and years of experience "
         "from IT resumes and job postings."
     ),
-    model="sonnet",
+    # Pinned, not the "sonnet" alias: the alias resolves to whatever Claude Code CLI build
+    # picks as "latest sonnet", which can be a model id a given Portkey/Bedrock integration
+    # hasn't allow-listed yet, failing every tool call with an API error instead of JSON.
+    model="us.anthropic.claude-sonnet-5",
     tools=[],
     prompt=f"""\
 You are a precise IT soft-skill extraction specialist.

@@ -1,0 +1,80 @@
+replicaCount: 1
+
+image:
+  repository: luigisamurai/mcp-skills-extractor-agents
+  tag: "0.1.0"
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+
+service:
+  # ClusterIP by default - this MCP server is meant to be reached by other in-cluster
+  # services (e.g. talent-distiller-agent's TALENT_DISTILLER_AGENT_SKILL_AGENT_MCP_URL)
+  # over streamable HTTP, not from outside the cluster. Switch to NodePort for local
+  # `minikube service` access while poking at it with the MCP Inspector.
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+probes:
+  # mcp v2's streamable-HTTP transport only exposes /mcp (JSON-RPC over POST) - there's no
+  # dedicated health route to httpGet, so both probes just check TCP connectivity on the port.
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+config:
+  # --- mcp_skills_extractor_agents.server.mcp_server: transport args ---
+  # stdio (the CLI default) doesn't make sense in a long-running pod, so the container always
+  # runs over streamable HTTP, bound to all interfaces so the Service can reach it.
+  protocol: http
+  host: "0.0.0.0"
+
+  # --- mcp_skills_extractor_agents.settings.SkillAgentSettings ---
+  # Restricts this release to registering only these extraction tools (rendered into
+  # CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS). Empty (the default) leaves the env var unset, which
+  # registers every tool - what a single, do-everything deployment wants.
+  #
+  # To deploy one tool (or a subset) per release/pod instead, override this per `helm install`
+  # with a different release name per tool - see this chart's README for examples. Valid
+  # values match the tool names in src/mcp_skills_extractor_agents/settings/settings.py:
+  #   extract_technical_skills, extract_soft_skills, extract_certifications, extract_languages
+  activeTools: []
+
+  # --- labs_agent_lib.AgentSettings (rendered with the LABS_AGENT_LIB_ prefix) ---
+  # Every extraction tool runs a real Claude Agent SDK agent (see e.g.
+  # technical_skill_extraction.py) - these are NOT mocked, despite what the root CLAUDE.md
+  # says. Without valid credentials below (see `secrets.*`), every tool call fails.
+  provider: portkey
+  logLevel: INFO
+  disablePromptCaching: "false"
+  # Portkey provider/credential alias - an identifier, not a credential, so it lives here
+  # rather than in the Secret below. Must point at a Portkey integration that allow-lists
+  # the model each tool pins (currently "us.anthropic.claude-sonnet-5" - see e.g.
+  # technical_skill_extraction.py's _AGENT_DEFINITION). Leaving this empty only works if
+  # your Portkey API key's workspace needs no virtual key to route requests at all.
+  portkeyVirtual: "aws-bedrock-use2"
+
+# Placeholder credentials only - do NOT put real secrets here or commit real values.
+# Override at install time instead, e.g.:
+#   helm install mcp-skills-extractor-agents ./helm/mcp-skills-extractor-agents \
+#     --set secrets.portkeyApiKey=***
+# or with a separate, untracked values file (helm install ... -f secrets.values.yaml).
+secrets:
+  portkeyApiKey: ""
+  anthropicApiKey: ""
