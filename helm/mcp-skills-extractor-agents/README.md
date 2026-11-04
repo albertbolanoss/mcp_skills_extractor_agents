@@ -91,22 +91,22 @@ Each release needs its own credential too (every pod runs its own Claude Agent S
 helm install skill-agent-technical ./helm/mcp-skills-extractor-agents \
   --set config.activeTools="{extract_technical_skills}" \
   --set fullnameOverride=skill-agent-technical \
-  --set secrets.portkeyApiKey=***
+  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
 
 helm install skill-agent-soft ./helm/mcp-skills-extractor-agents \
   --set config.activeTools="{extract_soft_skills}" \
   --set fullnameOverride=skill-agent-soft \
-  --set secrets.portkeyApiKey=***
+  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
 
 helm install skill-agent-certifications ./helm/mcp-skills-extractor-agents \
   --set config.activeTools="{extract_certifications}" \
   --set fullnameOverride=skill-agent-certifications \
-  --set secrets.portkeyApiKey=***
+  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
 
 helm install skill-agent-languages ./helm/mcp-skills-extractor-agents \
   --set config.activeTools="{extract_languages}" \
   --set fullnameOverride=skill-agent-languages \
-  --set secrets.portkeyApiKey=***
+  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
 ```
 
 Each release gets its own `Service` (named after the release, via the chart's fullname
@@ -136,6 +136,8 @@ kubectl get svc
 # skill-agent-languages         ClusterIP   ...
 ```
 
+### For local testing from your own machine (MCP Inspector, manual curl, etc.)
+
 ** port-forward to localhost (any cluster):**
 ```sh
 # forwarding more than one Service at once needs a distinct local port each, in separate
@@ -154,3 +156,30 @@ kubectl port-forward svc/skill-agent-languages 8003:80
 # then point an MCP client at http://localhost:8003/mcp
 
 ```
+
+`kubectl port-forward` only tunnels to the machine running `kubectl` — it does not make the
+`Service` reachable from other pods. Use these addresses only for a client running on that
+same machine.
+
+### For another in-cluster consumer (e.g. the coordinator)
+
+Address this chart's `Service` by its cluster-DNS name on its `Service` port (`80`, i.e.
+`service.port` — not a port-forward port), not the `localhost` addresses above:
+
+```sh
+# same namespace as the consumer
+http://skill-agent-technical/mcp
+http://skill-agent-soft/mcp
+http://skill-agent-certifications/mcp
+http://skill-agent-languages/mcp
+
+# different namespace
+http://skill-agent-technical.<namespace>.svc.cluster.local/mcp
+
+# single do-everything release (use your fullnameOverride if you set one)
+http://mcp-skills-extractor-agents/mcp
+```
+
+Set these as the consumer's own `*_MCP_URL` env vars (e.g. `talent-distiller-agent`'s
+`TALENT_DISTILLER_AGENT_SKILL_AGENT_TECHNICAL_MCP_URL` and its three siblings), via that
+chart's own values/`--set`, then redeploy it.
