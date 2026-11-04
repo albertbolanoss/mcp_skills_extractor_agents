@@ -22,7 +22,7 @@ uv venv                                                     # Create a virtual e
 ## Run
 
 ```sh
-uv run python -m candidate_skill_agent.main
+uv run python -m mcp_skills_extractor_agents.main
 uv sync                                    # Install deps + create .venv
 uv run pytest                              # Run tests
 uv run pytest tests/path::test_name        # Run a single test
@@ -38,20 +38,20 @@ only apply to `http` and `sse`.
 
 ```sh
 # stdio (default) — local process, used by Claude Code / Claude Desktop
-uv run python -m candidate_skill_agent.main
-uv run python -m candidate_skill_agent.main --protocol stdio
+uv run python -m mcp_skills_extractor_agents.main
+uv run python -m mcp_skills_extractor_agents.main --protocol stdio
 
 # streamable HTTP — served at http://<host>:<port>/mcp
-uv run python -m candidate_skill_agent.main --protocol http --host 127.0.0.1 --port 8000
+uv run python -m mcp_skills_extractor_agents.main --protocol http --host 127.0.0.1 --port 8000
 
 # SSE (legacy, kept for parity only) — served at http://<host>:<port>/sse
-uv run python -m candidate_skill_agent.main --protocol sse --host 127.0.0.1 --port 8000
+uv run python -m mcp_skills_extractor_agents.main --protocol sse --host 127.0.0.1 --port 8000
 ```
 
 You can still run the server module directly (stdio only):
 
 ```sh
-uv run python -m candidate_skill_agent.server.mcp_server
+uv run python -m mcp_skills_extractor_agents.server.mcp_server
 ```
 
 ## Debug MCP Server
@@ -68,7 +68,7 @@ For stdio you don't start the server yourself — the Inspector spawns it and co
 stdio automatically. Nothing to configure in the UI:
 
 ```sh
-uv run mcp dev src/candidate_skill_agent/server/mcp_server.py
+uv run mcp dev src/mcp_skills_extractor_agents/server/mcp_server.py
 ```
 
 ### streamable HTTP
@@ -76,7 +76,7 @@ uv run mcp dev src/candidate_skill_agent/server/mcp_server.py
 1. Start the server in one terminal:
 
    ```sh
-   uv run python -m candidate_skill_agent.main --protocol http --port 8000
+   uv run python -m mcp_skills_extractor_agents.main --protocol http --port 8000
    ```
 2. Open the Inspector in another terminal:
 
@@ -102,7 +102,7 @@ curl -i -X POST http://127.0.0.1:8000/mcp \
 1. Start the server in one terminal:
 
    ```sh
-   uv run python -m candidate_skill_agent.main --protocol sse --port 8000
+   uv run python -m mcp_skills_extractor_agents.main --protocol sse --port 8000
    ```
 2. Open the Inspector in another terminal:
 
@@ -152,7 +152,7 @@ claude mcp add <nombre> <comando> [args...] --scope <local|project|user>
 # Install candidate-skill-agent (local dev, from this checkout)
 claude mcp add candidate-skill-agent --scope project -- \
     uv --directory /path/to/candidate-skill-agent run \
-    python -m candidate_skill_agent.main --protocol stdio
+    python -m mcp_skills_extractor_agents.main --protocol stdio
 
 # Stdio Server (local process, the most common):
 claude mcp add airbnb -- npx -y @openbnb/mcp-server-airbnb
@@ -179,7 +179,7 @@ claude mcp add-json <name> '<json>' # Add mcp server using Json
   "mcpServers": {
     "candidate-skill-agent": {
       "command": "uv",
-      "args": ["run", "python", "-m", "candidate_skill_agent.main", "--protocol", "stdio"]
+      "args": ["run", "python", "-m", "mcp_skills_extractor_agents.main", "--protocol", "stdio"]
     }
   }
 }
@@ -213,7 +213,7 @@ or use **%APPDATA%\Claude\claude_desktop_config.json**
   "mcpServers": {
     "candidate-skill-agent": {
       "command": "uv",
-      "args": ["--directory", "C:\\path\\to\\candidate-skill-agent", "run", "python", "-m", "candidate_skill_agent.main", "--protocol", "stdio"]
+      "args": ["--directory", "C:\\path\\to\\candidate-skill-agent", "run", "python", "-m", "mcp_skills_extractor_agents.main", "--protocol", "stdio"]
     }
   }
 }

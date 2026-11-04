@@ -1,6 +1,6 @@
 """Tests for the common-language-proficiency-levels MCP resource."""
 
-from candidate_skill_agent.server.resources.common_language_proficiency_levels import (
+from mcp_skills_extractor_agents.server.resources.common_language_proficiency_levels import (
     COMMON_LANGUAGE_PROFICIENCY_LEVELS,
     common_language_proficiency_levels,
     normalize_language_proficiency,

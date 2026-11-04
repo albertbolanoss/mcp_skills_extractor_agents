@@ -1,7 +1,7 @@
 """Tests for the MCP server's transport dispatch."""
 
-from candidate_skill_agent.server import mcp_server as module
-from candidate_skill_agent.server.mcp_server import run_server
+from mcp_skills_extractor_agents.server import mcp_server as module
+from mcp_skills_extractor_agents.server.mcp_server import run_server
 
 
 def _mock_mcp_run(monkeypatch):

@@ -6,8 +6,10 @@ from types import SimpleNamespace
 import pytest
 from claude_agent_sdk import AssistantMessage, TextBlock
 
-from candidate_skill_agent.server.tools import certification_skill_extraction as module
-from candidate_skill_agent.server.tools.certification_skill_extraction import (
+from mcp_skills_extractor_agents.server.tools import (
+    certification_skill_extraction as module,
+)
+from mcp_skills_extractor_agents.server.tools.certification_skill_extraction import (
     extract_certifications,
 )
 

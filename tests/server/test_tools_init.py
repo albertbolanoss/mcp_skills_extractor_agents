@@ -3,8 +3,8 @@
 import importlib
 from types import SimpleNamespace
 
-import candidate_skill_agent.server.tools as module
-import candidate_skill_agent.settings as settings_package
+import mcp_skills_extractor_agents.server.tools as module
+import mcp_skills_extractor_agents.settings as settings_package
 
 
 def test_tools_init_skips_all_tools_when_active_tools_excludes_them(monkeypatch):

@@ -1,6 +1,6 @@
 """Tests for the common-seniority-levels MCP resource."""
 
-from candidate_skill_agent.server.resources.common_seniority_levels import (
+from mcp_skills_extractor_agents.server.resources.common_seniority_levels import (
     COMMON_SENIORITY_LEVELS,
     common_seniority_levels,
     normalize_seniority_level,

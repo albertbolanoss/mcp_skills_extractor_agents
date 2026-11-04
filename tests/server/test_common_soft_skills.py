@@ -1,6 +1,6 @@
 """Tests for the common-soft-skills MCP resource."""
 
-from candidate_skill_agent.server.resources.common_soft_skills import (
+from mcp_skills_extractor_agents.server.resources.common_soft_skills import (
     COMMON_SOFT_SKILLS,
     common_soft_skills,
     normalize_soft_skill,

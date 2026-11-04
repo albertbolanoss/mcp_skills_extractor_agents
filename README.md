@@ -53,9 +53,9 @@ cp .env.sample .env         # then set CHAT_LLM_API_KEY (see Configuration)
 Defaults: `stdio` transport, host `127.0.0.1`, port `8000`.
 
 ```sh
-uv run python -m candidate_skill_agent.main                              # stdio (default)
-uv run python -m candidate_skill_agent.main --protocol http --port 8000  # streamable HTTP -> /mcp
-uv run python -m candidate_skill_agent.main --protocol sse  --port 8000  # SSE (legacy)    -> /sse
+uv run python -m mcp_skills_extractor_agents.main                              # stdio (default)
+uv run python -m mcp_skills_extractor_agents.main --protocol http --port 8000  # streamable HTTP -> /mcp
+uv run python -m mcp_skills_extractor_agents.main --protocol sse  --port 8000  # SSE (legacy)    -> /sse
 ```
 
 > SSE is kept for parity with the three transports but is considered **legacy** in `mcp` v2

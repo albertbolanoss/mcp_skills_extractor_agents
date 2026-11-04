@@ -1,6 +1,6 @@
 """Tests for the common-certifications MCP resource."""
 
-from candidate_skill_agent.server.resources.common_certifications import (
+from mcp_skills_extractor_agents.server.resources.common_certifications import (
     COMMON_CERTIFICATIONS,
     common_certifications,
     get_certification_issuer,
@@ -20,7 +20,10 @@ def test_common_certifications_has_multiple_categories_and_certifications():
 
 def test_normalize_certification_resolves_known_alias():
     # Act / Assert
-    assert normalize_certification("AWS SAA") == "AWS Certified Solutions Architect - Associate"
+    assert (
+        normalize_certification("AWS SAA")
+        == "AWS Certified Solutions Architect - Associate"
+    )
     assert (
         normalize_certification("CISSP")
         == "Certified Information Systems Security Professional"

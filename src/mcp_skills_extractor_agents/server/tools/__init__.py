@@ -7,7 +7,7 @@ chart will set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` per deployed pod to restrict
 a subset of tools.
 """
 
-from candidate_skill_agent.settings import ToolName, get_skill_agent_settings
+from mcp_skills_extractor_agents.settings import ToolName, get_skill_agent_settings
 
 _active_tools = get_skill_agent_settings().active_tools
 _registered: list[str] = []

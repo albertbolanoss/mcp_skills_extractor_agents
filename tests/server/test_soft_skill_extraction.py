@@ -6,8 +6,10 @@ from types import SimpleNamespace
 import pytest
 from claude_agent_sdk import AssistantMessage, TextBlock
 
-from candidate_skill_agent.server.tools import soft_skill_extraction as module
-from candidate_skill_agent.server.tools.soft_skill_extraction import extract_soft_skills
+from mcp_skills_extractor_agents.server.tools import soft_skill_extraction as module
+from mcp_skills_extractor_agents.server.tools.soft_skill_extraction import (
+    extract_soft_skills,
+)
 
 
 class _FakeClient:
@@ -104,7 +106,9 @@ async def test_extract_soft_skills_retries_on_invalid_json(monkeypatch):
     _mock_agent(monkeypatch, responses)
 
     # Act
-    result = await extract_soft_skills("Mentors junior engineers", "resume", max_retries=1)
+    result = await extract_soft_skills(
+        "Mentors junior engineers", "resume", max_retries=1
+    )
 
     # Assert
     assert result == [{"skill": "Mentoring", "seniority_level": "Mid-Level"}]
