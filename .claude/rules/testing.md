@@ -1,12 +1,12 @@
 # Unit test conventions
 
-Tests live under `tests/`, mirroring the package layout under `src/candidate_skill_agent/`
+Tests live under `tests/`, mirroring the package layout under `src/mcp_skills_extractor_agents/`
 (e.g. `src/.../server/mcp_server.py` -> `tests/server/test_mcp_server.py`,
 `src/.../settings/settings.py` -> `tests/settings/test_settings.py`).
 
 **Coverage is required to be 100%** (statement coverage, enforced via `fail_under = 100` in
 `[tool.coverage.report]` in `pyproject.toml`). Run
-`uv run pytest --cov=candidate_skill_agent --cov-report=term-missing` to check it. Any new or
+`uv run pytest --cov=mcp_skills_extractor_agents --cov-report=term-missing` to check it. Any new or
 changed source line needs a test that exercises it; don't reach for `# pragma: no cover` to
 paper over an untested branch. The only standing exclusion is the
 `if __name__ == "__main__":` entrypoint guard, carved out project-wide via `exclude_also` in

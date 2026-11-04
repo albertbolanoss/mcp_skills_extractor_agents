@@ -1,6 +1,6 @@
 """Tests for the common-languages MCP resource."""
 
-from candidate_skill_agent.server.resources.common_languages import (
+from mcp_skills_extractor_agents.server.resources.common_languages import (
     COMMON_LANGUAGES,
     common_languages,
     normalize_language,

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 from claude_agent_sdk import AssistantMessage, TextBlock
 
-from candidate_skill_agent.server.tools import language_skill_extraction as module
-from candidate_skill_agent.server.tools.language_skill_extraction import (
+from mcp_skills_extractor_agents.server.tools import language_skill_extraction as module
+from mcp_skills_extractor_agents.server.tools.language_skill_extraction import (
     extract_languages,
 )
 
@@ -70,9 +70,7 @@ async def test_extract_languages_resume_omits_required(monkeypatch):
     result = await extract_languages("English B2 level", "resume")
 
     # Assert
-    assert result == [
-        {"language": "English", "proficiency": "B2", "is_native": False}
-    ]
+    assert result == [{"language": "English", "proficiency": "B2", "is_native": False}]
 
 
 async def test_extract_languages_job_posting_includes_required(monkeypatch):
@@ -114,9 +112,7 @@ async def test_extract_languages_normalizes_native_speaker(monkeypatch):
     result = await extract_languages("Native Spanish speaker", "resume")
 
     # Assert
-    assert result == [
-        {"language": "Spanish", "proficiency": "C2", "is_native": True}
-    ]
+    assert result == [{"language": "Spanish", "proficiency": "C2", "is_native": True}]
 
 
 async def test_extract_languages_retries_on_invalid_json(monkeypatch):
@@ -131,9 +127,7 @@ async def test_extract_languages_retries_on_invalid_json(monkeypatch):
     result = await extract_languages("Speaks French", "resume", max_retries=1)
 
     # Assert
-    assert result == [
-        {"language": "French", "proficiency": "B1", "is_native": False}
-    ]
+    assert result == [{"language": "French", "proficiency": "B1", "is_native": False}]
 
 
 async def test_extract_languages_strips_markdown_code_fences(monkeypatch):
@@ -145,9 +139,7 @@ async def test_extract_languages_strips_markdown_code_fences(monkeypatch):
     result = await extract_languages("Speaks French", "resume")
 
     # Assert
-    assert result == [
-        {"language": "French", "proficiency": "B1", "is_native": False}
-    ]
+    assert result == [{"language": "French", "proficiency": "B1", "is_native": False}]
 
 
 async def test_extract_languages_ignores_non_assistant_messages(monkeypatch):
@@ -159,9 +151,7 @@ async def test_extract_languages_ignores_non_assistant_messages(monkeypatch):
     result = await extract_languages("Speaks French", "resume")
 
     # Assert
-    assert result == [
-        {"language": "French", "proficiency": "B1", "is_native": False}
-    ]
+    assert result == [{"language": "French", "proficiency": "B1", "is_native": False}]
 
 
 async def test_extract_languages_raises_after_exhausting_retries(monkeypatch):

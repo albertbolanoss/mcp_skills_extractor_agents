@@ -1,6 +1,6 @@
 """Tests for the common-technical-skills MCP resource."""
 
-from candidate_skill_agent.server.resources.common_technical_skills import (
+from mcp_skills_extractor_agents.server.resources.common_technical_skills import (
     COMMON_TECHNICAL_SKILLS,
     common_technical_skills,
     normalize_technical_skill,

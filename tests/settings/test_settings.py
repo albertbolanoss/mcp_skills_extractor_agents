@@ -1,6 +1,6 @@
 """Tests for the Candidate Skill Agent settings."""
 
-from candidate_skill_agent.settings import SkillAgentSettings, ToolName
+from mcp_skills_extractor_agents.settings import SkillAgentSettings, ToolName
 
 
 def test_active_tools_defaults_to_none():

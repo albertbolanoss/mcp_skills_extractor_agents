@@ -1,6 +1,6 @@
 """Tests for the MCP prompts."""
 
-from candidate_skill_agent.server.prompts.coordinator_orchestration import (
+from mcp_skills_extractor_agents.server.prompts.coordinator_orchestration import (
     coordinator_orchestration,
 )
 

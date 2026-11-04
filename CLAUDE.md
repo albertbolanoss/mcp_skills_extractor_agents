@@ -34,7 +34,7 @@ uv sync                                                               # Install 
 uv run pytest                                                         # Run all tests
 uv run pytest tests/config/test_settings.py                           # Run one test file
 uv run pytest tests/path::test_name                                   # Run a single test
-uv run pytest --cov=candidate_skill_agent --cov-report=term-missing   # Run tests with coverage (100% required)
+uv run pytest --cov=mcp_skills_extractor_agents --cov-report=term-missing   # Run tests with coverage (100% required)
 uv run ruff check                                                     # Lint
 uv run ruff format                                                    # Format
 ```
@@ -42,9 +42,9 @@ uv run ruff format                                                    # Format
 Running the MCP server (defaults: `stdio`, host `127.0.0.1`, port `8000`):
 
 ```sh
-uv run python -m candidate_skill_agent.main                                 # stdio (default)
-uv run python -m candidate_skill_agent.main --protocol http --port 8000     # streamable HTTP -> /mcp
-uv run python -m candidate_skill_agent.main --protocol sse  --port 8000     # SSE (legacy)    -> /sse
+uv run python -m mcp_skills_extractor_agents.main                                 # stdio (default)
+uv run python -m mcp_skills_extractor_agents.main --protocol http --port 8000     # streamable HTTP -> /mcp
+uv run python -m mcp_skills_extractor_agents.main --protocol sse  --port 8000     # SSE (legacy)    -> /sse
 ```
 
 ## Architecture
@@ -58,7 +58,7 @@ transports and calls `mcp.run(transport=..., host=..., port=...)` (stdio takes n
 `run_server`.
 
 At the bottom of `mcp_server.py` there are two **absolute** imports —
-`from candidate_skill_agent.server import tools` / `prompts` — purely for their
+`from mcp_skills_extractor_agents.server import tools` / `prompts` — purely for their
 `@mcp.tool()` / `@mcp.prompt()` registration side effects. They're absolute (not relative)
 so this file keeps working if something points `mcp dev` directly at its file path instead
 of importing the package.

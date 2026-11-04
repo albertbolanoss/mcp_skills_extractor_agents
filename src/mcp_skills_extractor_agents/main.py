@@ -1,11 +1,11 @@
 import argparse
 
-from candidate_skill_agent.server import run_server
+from mcp_skills_extractor_agents.server import run_server
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="candidate_skill_agent",
+        prog="mcp_skills_extractor_agents",
         description="Run the Candidate Skill Agent MCP server over the selected transport protocol.",
     )
     parser.add_argument(

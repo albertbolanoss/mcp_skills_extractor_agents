@@ -1,7 +1,7 @@
 """Tests for the CLI entrypoint."""
 
-from candidate_skill_agent import main as module
-from candidate_skill_agent.main import main
+from mcp_skills_extractor_agents import main as module
+from mcp_skills_extractor_agents.main import main
 
 
 def _mock_run_server(monkeypatch):
@@ -19,7 +19,7 @@ def _mock_run_server(monkeypatch):
 def test_main_uses_default_protocol_host_and_port(monkeypatch):
     # Arrange
     calls = _mock_run_server(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["candidate_skill_agent"])
+    monkeypatch.setattr("sys.argv", ["mcp_skills_extractor_agents"])
 
     # Act
     main()
@@ -33,7 +33,15 @@ def test_main_forwards_explicit_protocol_host_and_port(monkeypatch):
     calls = _mock_run_server(monkeypatch)
     monkeypatch.setattr(
         "sys.argv",
-        ["candidate_skill_agent", "--protocol", "http", "--host", "0.0.0.0", "--port", "9000"],
+        [
+            "mcp_skills_extractor_agents",
+            "--protocol",
+            "http",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "9000",
+        ],
     )
 
     # Act
