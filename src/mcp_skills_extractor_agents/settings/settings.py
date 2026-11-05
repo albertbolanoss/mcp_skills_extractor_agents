@@ -34,6 +34,19 @@ class SkillAgentSettings(BaseSettings):
         ),
     )
 
+    observability_enabled: bool = Field(
+        default=True,
+        description="Master on/off switch for the prompt log and agent transcript writers.",
+    )
+    prompt_log_dir: str = Field(
+        default="documentation/prompt_log",
+        description="Directory where prompt-log JSONL files are written.",
+    )
+    agent_transcript_dir: str = Field(
+        default="documentation/agent_transcript",
+        description="Directory where agent-transcript JSONL files are written.",
+    )
+
     @field_validator("active_tools", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:

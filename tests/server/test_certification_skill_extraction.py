@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from claude_agent_sdk import AssistantMessage, TextBlock
+from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock
 
 from mcp_skills_extractor_agents.server.tools import (
     certification_skill_extraction as module,
@@ -40,6 +40,22 @@ class _FakeClient:
         yield AssistantMessage(
             content=[TextBlock(text=next(self._responses))], model="sonnet"
         )
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=1,
+            duration_api_ms=1,
+            is_error=False,
+            num_turns=1,
+            session_id="session-fake",
+        )
+
+
+class _FakeSkillAgentSettings:
+    """Keeps the new observability writers a no-op for these extraction-focused tests."""
+
+    observability_enabled = False
+    prompt_log_dir = "unused"
+    agent_transcript_dir = "unused"
 
 
 def _mock_agent(
@@ -52,6 +68,9 @@ def _mock_agent(
     )
     monkeypatch.setattr(
         module, "get_agent_environment", lambda settings: SimpleNamespace(env={})
+    )
+    monkeypatch.setattr(
+        module, "get_skill_agent_settings", lambda: _FakeSkillAgentSettings()
     )
 
 
