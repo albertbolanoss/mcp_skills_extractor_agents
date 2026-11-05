@@ -1,144 +1,50 @@
-"""Tests for the Claude-agent-backed technical-skills extraction tool."""
+"""Tests for the thin extract_technical_skills MCP tool wrapper."""
 
-import json
-from types import SimpleNamespace
-
-import pytest
-from claude_agent_sdk import AssistantMessage, TextBlock
-
-from mcp_skills_extractor_agents.server.tools import (
-    technical_skill_extraction as module,
-)
+import mcp_skills_extractor_agents.agents.technical_skills as pipeline_module
 from mcp_skills_extractor_agents.server.tools.technical_skill_extraction import (
     extract_technical_skills,
 )
 
 
-class _FakeClient:
-    """Fakes ClaudeSDKClient: replays queued agent text responses, one per query() call."""
+async def test_extract_technical_skills_delegates_to_pipeline(monkeypatch):
+    # Arrange
+    captured_args = {}
 
-    def __init__(
-        self, responses: list[str], options=None, include_non_assistant: bool = False
-    ):
-        self._responses = iter(responses)
-        self.options = options
-        self.prompts: list[str] = []
-        self._include_non_assistant = include_non_assistant
+    async def _fake_pipeline(content, doc_type, max_retries):
+        captured_args["content"] = content
+        captured_args["doc_type"] = doc_type
+        captured_args["max_retries"] = max_retries
+        return [{"skill": "Python"}]
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-    async def query(self, prompt: str) -> None:
-        self.prompts.append(prompt)
-
-    async def receive_response(self):
-        if self._include_non_assistant:
-            yield object()
-        yield AssistantMessage(
-            content=[TextBlock(text=next(self._responses))], model="sonnet"
-        )
-
-
-def _mock_agent(
-    monkeypatch, responses: list[str], include_non_assistant: bool = False
-) -> None:
+    # The tool imports run_technical_skills_pipeline lazily (see module docstring on
+    # why), so the fake must be patched on its source package, not on the tool module.
     monkeypatch.setattr(
-        module,
-        "ClaudeSDKClient",
-        lambda options=None: _FakeClient(responses, options, include_non_assistant),
+        pipeline_module, "run_technical_skills_pipeline", _fake_pipeline
     )
+
+    # Act
+    result = await extract_technical_skills("some resume text", "resume", max_retries=3)
+
+    # Assert
+    assert result == [{"skill": "Python"}]
+    assert captured_args == {
+        "content": "some resume text",
+        "doc_type": "resume",
+        "max_retries": 3,
+    }
+
+
+async def test_extract_technical_skills_uses_default_max_retries(monkeypatch):
+    # Arrange
+    async def _fake_pipeline(content, doc_type, max_retries):
+        return [{"max_retries_seen": max_retries}]
+
     monkeypatch.setattr(
-        module, "get_agent_environment", lambda settings: SimpleNamespace(env={})
+        pipeline_module, "run_technical_skills_pipeline", _fake_pipeline
     )
 
-
-async def test_extract_technical_skills_resume_omits_required(monkeypatch):
-    # Arrange
-    agent_json = json.dumps(
-        [{"skill": "JS", "seniority_level": "Sr", "experience_years": 5}]
-    )
-    _mock_agent(monkeypatch, [agent_json])
-
     # Act
-    result = await extract_technical_skills("Used JS for 5 years", "resume")
+    result = await extract_technical_skills("text", "job_posting")
 
     # Assert
-    assert result == [
-        {"skill": "JavaScript", "seniority_level": "Senior", "experience_years": 5}
-    ]
-
-
-async def test_extract_technical_skills_job_posting_includes_required(monkeypatch):
-    # Arrange
-    agent_json = json.dumps(
-        [
-            {
-                "skill": "Python3",
-                "seniority_level": "Senior-Level",
-                "experience_years": 5,
-                "required": True,
-            }
-        ]
-    )
-    _mock_agent(monkeypatch, [agent_json])
-
-    # Act
-    result = await extract_technical_skills("Must know Python", "job_posting")
-
-    # Assert
-    assert result == [
-        {
-            "skill": "Python",
-            "seniority_level": "Senior",
-            "experience_years": 5,
-            "required": True,
-        }
-    ]
-
-
-async def test_extract_technical_skills_retries_on_invalid_json(monkeypatch):
-    # Arrange
-    responses = ["not json", json.dumps([{"skill": "Go", "seniority_level": "Mid"}])]
-    _mock_agent(monkeypatch, responses)
-
-    # Act
-    result = await extract_technical_skills("Go developer", "resume", max_retries=1)
-
-    # Assert
-    assert result == [{"skill": "Go", "seniority_level": "Mid-Level"}]
-
-
-async def test_extract_technical_skills_strips_markdown_code_fences(monkeypatch):
-    # Arrange
-    agent_json = json.dumps([{"skill": "Go", "seniority_level": "Mid"}])
-    _mock_agent(monkeypatch, [f"```json\n{agent_json}\n```"])
-
-    # Act
-    result = await extract_technical_skills("Go developer", "resume")
-
-    # Assert
-    assert result == [{"skill": "Go", "seniority_level": "Mid-Level"}]
-
-
-async def test_extract_technical_skills_ignores_non_assistant_messages(monkeypatch):
-    # Arrange
-    agent_json = json.dumps([{"skill": "Go", "seniority_level": "Mid"}])
-    _mock_agent(monkeypatch, [agent_json], include_non_assistant=True)
-
-    # Act
-    result = await extract_technical_skills("Go developer", "resume")
-
-    # Assert
-    assert result == [{"skill": "Go", "seniority_level": "Mid-Level"}]
-
-
-async def test_extract_technical_skills_raises_after_exhausting_retries(monkeypatch):
-    # Arrange
-    _mock_agent(monkeypatch, ["still not json", "still not json"])
-
-    # Act / Assert
-    with pytest.raises(RuntimeError):
-        await extract_technical_skills("whatever", "resume", max_retries=1)
+    assert result == [{"max_retries_seen": 2}]
