@@ -21,7 +21,8 @@ This server is the extraction piece of a larger hub-and-spoke system:
 > that integration is a deliberate, separate step. This repo can be installed and
 > smoke-tested on its own first.
 
-Requires **Python >= 3.14** and **[uv](https://github.com/astral-sh/uv)**.
+Requires **Python >= 3.14** and either [uv](https://github.com/astral-sh/uv) (recommended) or
+a plain virtual environment with `pip`.
 
 ## Tools
 
@@ -32,8 +33,8 @@ Requires **Python >= 3.14** and **[uv](https://github.com/astral-sh/uv)**.
 | `extract_certifications` | Professional certifications, with issuer and active status. |
 | `extract_languages` | Spoken/written languages, with CEFR proficiency level and native status. |
 
-Every tool is backed by a real Claude Agent SDK agent — see "Configuration" below for the
-credentials they need to actually run.
+Every tool is backed by a real Claude Agent SDK agent — see "Configuring the .env file" below
+for the credentials they need to actually run.
 
 Set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS=extract_technical_skills,extract_certifications` (or
 any subset) to restrict this server to only those tools. Unset (the default) registers all 4.
@@ -44,27 +45,66 @@ any subset) to restrict this server to only those tools. Unset (the default) reg
 | --- | --- |
 | `coordinator_orchestration` | System prompt for a coordinator that fans out all extraction tools in parallel. |
 
-## How to run it
+## How to Run It
 
-- **Development mode** (this machine, Python + `uv`): see below.
-- **Deployment mode** (Kubernetes/minikube/Rancher Desktop via Helm): see
-  [`helm/mcp-skills-extractor-agents/README.md`](helm/mcp-skills-extractor-agents/README.md).
+There are two ways to run it:
 
-## Setup
+1. **Development mode** (below): run this server directly on your machine with `uv` or a
+   plain Python virtual environment.
+2. **Deployment mode**: deploy it to a Kubernetes cluster (minikube, Rancher Desktop, or a
+   managed/shared cluster) via Helm — see
+   [`helm/mcp-skills-extractor-agents/README.md`](helm/mcp-skills-extractor-agents/README.md).
+
+## Development Mode
+
+Development mode runs the MCP server as a plain process on your machine — no containers or
+cluster required.
+
+### Prerequisites
+
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (recommended) or
+   [Python 3.14 or higher](https://www.python.org/downloads/).
+2. A Portkey or Anthropic credential for the Claude Agent SDK (ask your AI Academy facilitator
+   for a Portkey key, or use an Anthropic API key directly).
+
+### 1. Install Project Dependencies
+
+**Option A: Using uv**
 
 ```sh
 uv python install 3.14      # once, if you don't have Python 3.14
 uv sync                     # install dependencies and create .venv
-cp .env.sample .env         # then set the LABS_AGENT_LIB_* credentials below
 ```
 
 `uv sync` resolves `labs-agent-lib` from TestPyPI automatically (declared in
 `pyproject.toml`) — no extra flags needed for local development.
 
-## Configuration
+**Option B: Using Python 3.14 and `requirements.txt`**
+
+```sh
+# Create and activate a virtual environment in the project root folder
+python -m venv .venv
+.venv\Scripts\activate
+
+# Install the project dependencies (labs-agent-lib resolves from TestPyPI via the
+# --extra-index-url already declared at the top of requirements.txt)
+pip install -r requirements.txt
+pip install -r requirements-dev.txt   # optional: only needed to run tests/lint
+
+# Install the project itself (registers the candidate-skill-agent entrypoint)
+pip install .
+```
+
+### 2. Configuring the .env file
+
+Copy the example file and fill in your values:
+
+```sh
+cp .env.sample .env
+```
 
 Every tool call goes through a real Claude Agent SDK agent, configured by `labs-agent-lib`'s
-`AgentSettings` from `LABS_AGENT_LIB_*` env vars (see `.env.sample`):
+`AgentSettings` from `LABS_AGENT_LIB_*` env vars:
 
 | Variable | Description |
 | --- | --- |
@@ -81,12 +121,14 @@ Plus this server's own tool-selection setting:
 | --- | --- |
 | `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` | Comma-separated tool names to restrict this server to. Unset registers all 4 — see "Tools" above. |
 
-Without a real Portkey/Anthropic credential, the server starts fine, but every tool call
-fails once it reaches the model.
+`.env` is gitignored — never commit it. Without a real Portkey/Anthropic credential, the
+server starts fine, but every tool call fails once it reaches the model.
 
-## Run the MCP server
+### 3. Run the MCP server
 
 Defaults: `stdio` transport, host `127.0.0.1`, port `8000`.
+
+**Option A: Using uv**
 
 ```sh
 uv run python -m mcp_skills_extractor_agents.main                              # stdio (default)
@@ -94,17 +136,50 @@ uv run python -m mcp_skills_extractor_agents.main --protocol http --port 8000  #
 uv run python -m mcp_skills_extractor_agents.main --protocol sse  --port 8000  # SSE (legacy)    -> /sse
 ```
 
+**Option B: Using Python and the virtual environment**
+
+```sh
+.venv\Scripts\activate
+
+python -m mcp_skills_extractor_agents.main --protocol http --port 8000
+# or, once `pip install .` has registered the entrypoint:
+candidate-skill-agent --protocol http --port 8000
+```
+
 > SSE is kept for parity with the three transports but is considered **legacy** in `mcp` v2
 > ("don't build anything new on it") — prefer `stdio` or `http` for new integrations.
 
+## Deployment Mode
+
+To deploy this server to a Kubernetes cluster (minikube, Rancher Desktop, or a managed/shared
+cluster) via Helm instead of running it as a local process, follow
+[`helm/mcp-skills-extractor-agents/README.md`](helm/mcp-skills-extractor-agents/README.md). It
+covers building the Docker image, installing/upgrading the chart (including running a subset
+of tools per release), and reaching the resulting `Service` from inside or outside the
+cluster.
+
 ## Develop
 
+**Option A: Using uv**
+
 ```sh
-uv run pytest                                                         # run tests
-uv run pytest tests/path::test_name                                   # run a single test
-uv run pytest --cov=mcp_skills_extractor_agents --cov-report=term-missing   # coverage (100% required)
-uv run ruff check                                                     # lint
-uv run ruff format                                                    # format
+uv run pytest                                                              # run tests
+uv run pytest tests/path::test_name                                       # run a single test
+uv run pytest --cov=mcp_skills_extractor_agents --cov-report=term-missing  # coverage (100% required)
+uv run ruff check                                                          # lint
+uv run ruff format                                                        # format
+```
+
+**Option B: Using Python**
+
+```sh
+.venv\Scripts\activate
+
+pytest                                                              # run tests
+pytest tests/path::test_name                                        # run a single test
+pytest --cov=mcp_skills_extractor_agents --cov-report=term-missing  # coverage (100% required)
+ruff check                                                          # lint
+ruff format                                                         # format
 ```
 
 ## Try it with the MCP Inspector
