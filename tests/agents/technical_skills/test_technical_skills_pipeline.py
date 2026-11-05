@@ -1,7 +1,7 @@
 """Acceptance tests for the technical-skills Generator-Evaluator-Synthesizer pipeline.
 
 Each test here maps 1:1 to a verification criterion from
-`spec/11-04-26-01-technical_skills_extraction.spec.md` section 8.
+`spec/1.0_spec_init_technical_skills_agent_workflow.md` section 8.
 """
 
 import inspect
@@ -18,8 +18,8 @@ from mcp_skills_extractor_agents.agents.technical_skills.orchestrator import (
     run_technical_skills_pipeline,
 )
 from mcp_skills_extractor_agents.agents.technical_skills.schemas import (
-    EvidenceContainer,
-    TechnicalSkillEvidence,
+    FieldEvidence,
+    SkillEvidences,
     TechnicalSkillItem,
 )
 from mcp_skills_extractor_agents.server.tools import (
@@ -77,6 +77,18 @@ def _mock_sessions(monkeypatch, sessions: list[list[str]]):
     return factory
 
 
+def _evidence(
+    grounding_text: str = "", justification: str = "justification", **extra
+) -> dict:
+    """Builds one FieldEvidence-shaped dict for a mocked extractor/evaluator response."""
+    return {"grounding_text": grounding_text, "justification": justification, **extra}
+
+
+def _item(skill: str, evidences: dict, **fields) -> dict:
+    """Builds one extracted/evaluated item dict: root fields plus its evidences object."""
+    return {"skill": skill, **fields, "evidences": evidences}
+
+
 def test_module_separation():
     # Arrange
     source = Path(inspect.getfile(tool_module)).read_text(encoding="utf-8")
@@ -88,14 +100,27 @@ def test_module_separation():
     assert "AgentDefinition" not in source
 
 
-def test_partial_attributes_allowed():
+def test_field_level_evidences_structure():
     # Act
     item = TechnicalSkillItem(
         skill="Python",
-        evidences=EvidenceContainer(
-            technical_skills=TechnicalSkillEvidence(
-                text="Used Python", justification="mentions Python"
-            )
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Skills: Python, Docker",
+                justification="listed in skills section",
+            ),
+            seniority_level=FieldEvidence(
+                justification=(
+                    "Listed only in skills section without proficiency descriptor "
+                    "or date range."
+                )
+            ),
+            experience_years=FieldEvidence(
+                justification=(
+                    "Listed only in skills section without proficiency descriptor "
+                    "or date range."
+                )
+            ),
         ),
     )
 
@@ -103,12 +128,32 @@ def test_partial_attributes_allowed():
     assert item.seniority_level is None
     assert item.experience_years is None
     assert item.required is None
-    assert item.evidences.technical_skills.accuracy == -1.0
-    assert item.evidences.technical_skills.evaluator_justification is None
+    assert item.evidences.required is None
+    assert item.evidences.seniority_level.grounding_text == ""
+    assert item.evidences.seniority_level.justification != ""
+    assert item.evidences.skill.accuracy == -1.0
+    assert item.evidences.skill.evaluator_justification is None
 
-    # Act / Assert - "skill" and "evidences" remain required
+    # Act - a job_posting item also carries a "required" FieldEvidence
+    job_posting_item = TechnicalSkillItem(
+        skill="Python",
+        required=True,
+        evidences=SkillEvidences(
+            skill=FieldEvidence(grounding_text="Must know Python", justification="j"),
+            seniority_level=FieldEvidence(justification="not stated"),
+            experience_years=FieldEvidence(justification="not stated"),
+            required=FieldEvidence(
+                grounding_text="Must know Python", justification="stated as mandatory"
+            ),
+        ),
+    )
+
+    # Assert
+    assert job_posting_item.evidences.required.grounding_text == "Must know Python"
+
+    # Act / Assert - skill/seniority_level/experience_years evidences remain required
     with pytest.raises(ValidationError):
-        TechnicalSkillItem(seniority_level="Senior")
+        SkillEvidences(seniority_level=FieldEvidence(justification="j"))
 
 
 async def test_empty_extraction_short_circuits_evaluator(monkeypatch):
@@ -125,24 +170,40 @@ async def test_empty_extraction_short_circuits_evaluator(monkeypatch):
 
 async def test_batch_evaluation_concurrency(monkeypatch):
     # Arrange
+    skills = [f"Skill{i}" for i in range(25)]
     extracted_items = [
-        {
-            "skill": f"Skill{i}",
-            "evidence_text": f"text {i}",
-            "justification": f"justification {i}",
-        }
-        for i in range(25)
+        _item(
+            skill,
+            {
+                "skill": _evidence(f"text {skill}", f"justification {skill}"),
+                "seniority_level": _evidence(),
+                "experience_years": _evidence(),
+            },
+        )
+        for skill in skills
     ]
 
-    def _evaluated_batch(size: int) -> str:
+    def _evaluated_batch(batch_skills: list[str]) -> str:
         return json.dumps(
             [
-                {
-                    "skill": f"Skill{i}",
-                    "accuracy": 1.0,
-                    "evaluator_justification": "confirmed",
-                }
-                for i in range(size)
+                _item(
+                    skill,
+                    {
+                        "skill": _evidence(
+                            f"text {skill}",
+                            f"justification {skill}",
+                            accuracy=1.0,
+                            evaluator_justification="confirmed",
+                        ),
+                        "seniority_level": _evidence(
+                            accuracy=1.0, evaluator_justification="confirmed abstention"
+                        ),
+                        "experience_years": _evidence(
+                            accuracy=1.0, evaluator_justification="confirmed abstention"
+                        ),
+                    },
+                )
+                for skill in batch_skills
             ]
         )
 
@@ -150,9 +211,9 @@ async def test_batch_evaluation_concurrency(monkeypatch):
         monkeypatch,
         [
             [json.dumps(extracted_items)],
-            [_evaluated_batch(10)],
-            [_evaluated_batch(10)],
-            [_evaluated_batch(5)],
+            [_evaluated_batch(skills[0:10])],
+            [_evaluated_batch(skills[10:20])],
+            [_evaluated_batch(skills[20:25])],
         ],
     )
 
@@ -164,73 +225,128 @@ async def test_batch_evaluation_concurrency(monkeypatch):
     assert len(factory.created) == 4  # 1 extractor session + 3 evaluator batch sessions
 
 
-async def test_evaluator_nullifies_unsupported_metadata(monkeypatch):
+async def test_evaluator_nullifies_unsupported_secondary_field(monkeypatch):
     # Arrange
-    extracted = [
-        {
-            "skill": "Python",
-            "seniority_level": "Senior",
-            "experience_years": 5,
-            "evidence_text": "Experience with Python",
-            "justification": "mentions Python",
-        }
-    ]
-    evaluated = [
-        {
-            "skill": "Python",
-            "seniority_level": None,
-            "experience_years": None,
-            "accuracy": 0.9,
-            "evaluator_justification": (
-                "Skill verified, but seniority and years were not stated in the "
-                "source text"
-            ),
-        }
-    ]
-    _mock_sessions(monkeypatch, [[json.dumps(extracted)], [json.dumps(evaluated)]])
+    extracted = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence("Familiar with Python", "mentions Python"),
+                    "seniority_level": _evidence(
+                        "Familiar with Python", "assumed senior from context"
+                    ),
+                    "experience_years": _evidence(),
+                },
+                seniority_level="Senior",
+            )
+        ]
+    )
+    evaluated = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence(
+                        "Familiar with Python",
+                        "mentions Python",
+                        accuracy=1.0,
+                        evaluator_justification="confirmed",
+                    ),
+                    "seniority_level": _evidence(
+                        "",
+                        "not supported by text",
+                        accuracy=0.2,
+                        evaluator_justification=(
+                            "document never states a seniority level"
+                        ),
+                    ),
+                    "experience_years": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                },
+            )
+        ]
+    )
+    _mock_sessions(monkeypatch, [[extracted], [evaluated]])
 
     # Act
-    result = await run_technical_skills_pipeline("Experience with Python", "resume")
+    result = await run_technical_skills_pipeline("Familiar with Python", "resume")
 
     # Assert
     assert len(result) == 1
     item = result[0]
     assert item["skill"] == "Python"
-    assert "seniority_level" not in item
-    assert "experience_years" not in item
-    assert item["evidences"]["technical_skills"]["accuracy"] == 0.9
-    assert item["evidences"]["technical_skills"]["evaluator_justification"] == (
-        "Skill verified, but seniority and years were not stated in the source text"
+    assert item["seniority_level"] is None
+    assert item["evidences"]["seniority_level"]["grounding_text"] == ""
+    assert item["evidences"]["seniority_level"]["evaluator_justification"] == (
+        "document never states a seniority level"
     )
 
 
 async def test_synthesizer_filters_low_accuracy_skills(monkeypatch):
     # Arrange
-    extracted = [
-        {
-            "skill": "Python",
-            "evidence_text": "Experience with Python",
-            "justification": "mentions Python",
-        },
-        {
-            "skill": "Kubernetes",
-            "evidence_text": "Experience with Docker",
-            "justification": "assumed from Docker",
-        },
-    ]
-    evaluated = [
-        {
-            "skill": "Python",
-            "accuracy": 0.85,
-            "evaluator_justification": "confirmed",
-        },
-        {
-            "skill": "Kubernetes",
-            "accuracy": 0.4,
-            "evaluator_justification": "document only mentions Docker, not Kubernetes",
-        },
-    ]
-    _mock_sessions(monkeypatch, [[json.dumps(extracted)], [json.dumps(evaluated)]])
+    extracted = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence("Experience with Python", "mentions Python"),
+                    "seniority_level": _evidence(),
+                    "experience_years": _evidence(),
+                },
+            ),
+            _item(
+                "Kubernetes",
+                {
+                    "skill": _evidence("Experience with Docker", "assumed from Docker"),
+                    "seniority_level": _evidence(),
+                    "experience_years": _evidence(),
+                },
+            ),
+        ]
+    )
+    evaluated = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence(
+                        "Experience with Python",
+                        "mentions Python",
+                        accuracy=0.85,
+                        evaluator_justification="confirmed",
+                    ),
+                    "seniority_level": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "experience_years": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                },
+            ),
+            _item(
+                "Kubernetes",
+                {
+                    "skill": _evidence(
+                        "Experience with Docker",
+                        "assumed from Docker",
+                        accuracy=0.4,
+                        evaluator_justification=(
+                            "document only mentions Docker, not Kubernetes"
+                        ),
+                    ),
+                    "seniority_level": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "experience_years": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                },
+            ),
+        ]
+    )
+    _mock_sessions(monkeypatch, [[extracted], [evaluated]])
 
     # Act
     result = await run_technical_skills_pipeline(
@@ -240,6 +356,109 @@ async def test_synthesizer_filters_low_accuracy_skills(monkeypatch):
     # Assert
     assert len(result) == 1
     assert result[0]["skill"] == "Python"
+
+
+async def test_doc_type_required_field_handling(monkeypatch):
+    # Arrange - job_posting run: both extractor and evaluator carry "required".
+    job_posting_extracted = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence("Must know Python", "mandatory core skill"),
+                    "seniority_level": _evidence(),
+                    "experience_years": _evidence(),
+                    "required": _evidence(
+                        "Must know Python", "stated as mandatory"
+                    ),
+                },
+                required=True,
+            )
+        ]
+    )
+    job_posting_evaluated = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence(
+                        "Must know Python",
+                        "mandatory core skill",
+                        accuracy=1.0,
+                        evaluator_justification="confirmed",
+                    ),
+                    "seniority_level": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "experience_years": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "required": _evidence(
+                        "Must know Python",
+                        "stated as mandatory",
+                        accuracy=1.0,
+                        evaluator_justification="confirmed",
+                    ),
+                },
+                required=True,
+            )
+        ]
+    )
+    _mock_sessions(monkeypatch, [[job_posting_extracted], [job_posting_evaluated]])
+
+    # Act
+    job_posting_result = await run_technical_skills_pipeline(
+        "Must know Python", "job_posting"
+    )
+
+    # Assert
+    assert job_posting_result[0]["required"] is True
+    assert "required" in job_posting_result[0]["evidences"]
+
+    # Arrange - resume run: no "required" anywhere in the extracted/evaluated payload.
+    resume_extracted = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence("Experience with Python", "mentions Python"),
+                    "seniority_level": _evidence(),
+                    "experience_years": _evidence(),
+                },
+            )
+        ]
+    )
+    resume_evaluated = json.dumps(
+        [
+            _item(
+                "Python",
+                {
+                    "skill": _evidence(
+                        "Experience with Python",
+                        "mentions Python",
+                        accuracy=1.0,
+                        evaluator_justification="confirmed",
+                    ),
+                    "seniority_level": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "experience_years": _evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                },
+            )
+        ]
+    )
+    _mock_sessions(monkeypatch, [[resume_extracted], [resume_evaluated]])
+
+    # Act
+    resume_result = await run_technical_skills_pipeline(
+        "Experience with Python", "resume"
+    )
+
+    # Assert
+    assert "required" not in resume_result[0]
+    assert "required" not in resume_result[0]["evidences"]
 
 
 async def test_retry_loop_recovers_from_malformed_json(monkeypatch):

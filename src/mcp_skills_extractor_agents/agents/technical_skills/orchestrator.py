@@ -1,14 +1,18 @@
 """Hybrid Generator-Evaluator orchestration for technical-skills extraction.
 
-Pipeline (see spec `11-04-26-01-technical_skills_extraction.spec.md`):
-1. Generator (Extractor agent, `sonnet`): extracts candidate skills with verbatim
-   evidence in a single turn.
+Pipeline (see spec `1.0_spec_init_technical_skills_agent_workflow.md`):
+1. Generator (Extractor agent, `sonnet`): extracts candidate skills in a single turn,
+   actively determining `seniority_level`, `experience_years` and `required`, with a
+   per-field evidence object (`grounding_text`, `justification`) for every attribute.
 2. Deterministic coordinator (this module, plain `asyncio`): splits the extracted
    items into batches of `EVAL_BATCH_SIZE` and fans them out concurrently.
-3. Batch Evaluator agent (`haiku`): audits each batch against the source document and
-   nullifies any unsubstantiated secondary attribute.
-4. Deterministic synthesizer (this module, pure Python): filters out low-accuracy
-   items, normalizes against the canonical taxonomies, enforces the `required`
+3. Batch Evaluator agent (`haiku`): audits each batch against the source document on a
+   per-field basis, assigning an independent `accuracy` to `skill`, `seniority_level`,
+   `experience_years` and `required`, nullifying unsubstantiated fields or recovering
+   ones the extractor missed.
+4. Deterministic synthesizer (this module, pure Python): drops items whose `skill`
+   accuracy is too low, nullifies secondary fields whose accuracy is too low,
+   normalizes against the canonical taxonomies, enforces the `required`
    document-type rule, and serializes the clean result.
 """
 
@@ -25,7 +29,7 @@ from claude_agent_sdk import (
     TextBlock,
 )
 from labs_agent_lib import get_agent_environment, get_agent_settings, get_logger
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from ...server.resources.common_seniority_levels import normalize_seniority_level
 from ...server.resources.common_technical_skills import normalize_technical_skill
@@ -35,34 +39,21 @@ from .prompts import (
     build_evaluator_user_prompt,
     build_extractor_user_prompt,
 )
-from .schemas import EvidenceContainer, TechnicalSkillEvidence, TechnicalSkillItem
+from .schemas import TechnicalSkillItem
 
 logger = get_logger(__name__)
 
 EVAL_BATCH_SIZE = 10
 ACCURACY_THRESHOLD = 0.7
 
+# Fields the evaluator sets independently of "skill"; only "required" is conditional
+# on doc_type ("job_posting"), and simply absent (None) for "resume" items.
+_SECONDARY_FIELDS = ("seniority_level", "experience_years", "required")
 
-class _ExtractedSkill(BaseModel):
-    """One technical skill as the Extractor agent must report it, pre-evaluation."""
-
-    skill: str
-    seniority_level: str | None = None
-    experience_years: int | None = None
-    required: bool | None = None
-    evidence_text: str
-    justification: str
-
-
-class _EvaluatedSkill(BaseModel):
-    """One technical skill's audit result, as the Evaluator agent must report it."""
-
-    skill: str
-    seniority_level: str | None = None
-    experience_years: int | None = None
-    required: bool | None = None
-    accuracy: float
-    evaluator_justification: str
+# Dropped from each evidence object before it's sent to the evaluator: they're not
+# known yet at extraction time (accuracy defaults to -1.0, evaluator_justification to
+# None), so sending them as-is would waste tokens and could confuse the evaluator.
+_PRE_EVALUATION_EVIDENCE_KEYS = ("accuracy", "evaluator_justification")
 
 
 def _extract_json_array(raw_text: str) -> str:
@@ -132,27 +123,26 @@ async def _run_agent_session[T](
     )
 
 
-def _parse_extracted(raw_text: str) -> list[_ExtractedSkill]:
+def _parse_items(raw_text: str) -> list[TechnicalSkillItem]:
     items = json.loads(_extract_json_array(raw_text))
-    return [_ExtractedSkill.model_validate(item) for item in items]
+    return [TechnicalSkillItem.model_validate(item) for item in items]
 
 
 async def _run_extractor(
     content: str, doc_type: str, max_retries: int
-) -> list[_ExtractedSkill]:
+) -> list[TechnicalSkillItem]:
     prompt = build_extractor_user_prompt(content, doc_type)
     return await _run_agent_session(
         EXTRACTOR_AGENT_DEFINITION,
         prompt,
-        _parse_extracted,
+        _parse_items,
         max_retries,
         "extract_technical_skills[extractor]",
     )
 
 
-def _parse_evaluated(raw_text: str, expected_len: int) -> list[_EvaluatedSkill]:
-    items = json.loads(_extract_json_array(raw_text))
-    parsed = [_EvaluatedSkill.model_validate(item) for item in items]
+def _parse_evaluated(raw_text: str, expected_len: int) -> list[TechnicalSkillItem]:
+    parsed = _parse_items(raw_text)
     if len(parsed) != expected_len:
         raise ValueError(
             f"evaluator returned {len(parsed)} items, expected {expected_len}"
@@ -160,13 +150,25 @@ def _parse_evaluated(raw_text: str, expected_len: int) -> list[_EvaluatedSkill]:
     return parsed
 
 
+def _strip_for_evaluator(item: TechnicalSkillItem) -> dict:
+    """Dumps an extracted item for the evaluator prompt, dropping the not-yet-known
+    `accuracy`/`evaluator_justification` placeholders from each evidence object.
+    """
+    dump = item.model_dump()
+    for evidence in dump["evidences"].values():
+        if evidence is not None:
+            for key in _PRE_EVALUATION_EVIDENCE_KEYS:
+                evidence.pop(key, None)
+    return dump
+
+
 async def _run_evaluator_batch(
     content: str,
     doc_type: str,
-    batch: list[_ExtractedSkill],
+    batch: list[TechnicalSkillItem],
     max_retries: int,
-) -> list[_EvaluatedSkill]:
-    batch_payload = [item.model_dump() for item in batch]
+) -> list[TechnicalSkillItem]:
+    batch_payload = [_strip_for_evaluator(item) for item in batch]
     prompt = build_evaluator_user_prompt(content, doc_type, batch_payload)
     return await _run_agent_session(
         EVALUATOR_AGENT_DEFINITION,
@@ -184,9 +186,9 @@ def _make_batches[T](items: list[T], size: int) -> list[list[T]]:
 async def _evaluate_all(
     content: str,
     doc_type: str,
-    extracted: list[_ExtractedSkill],
+    extracted: list[TechnicalSkillItem],
     max_retries: int,
-) -> list[_EvaluatedSkill]:
+) -> list[TechnicalSkillItem]:
     """Coordinator: fans batches of up to `EVAL_BATCH_SIZE` extracted items out to
     concurrent Evaluator agent sessions via `asyncio.gather`, then flattens the
     per-batch results back into the original item order.
@@ -201,43 +203,37 @@ async def _evaluate_all(
     return [item for batch_result in batch_results for item in batch_result]
 
 
-def _synthesize(
-    doc_type: str,
-    extracted: list[_ExtractedSkill],
-    evaluated: list[_EvaluatedSkill],
-) -> list[dict]:
-    """Deterministic synthesizer: drops unverified items, normalizes against the
-    canonical taxonomies, enforces the `required` document-type rule, and serializes.
+def _synthesize(doc_type: str, evaluated: list[TechnicalSkillItem]) -> list[dict]:
+    """Deterministic synthesizer: drops unverified skills, nullifies unsubstantiated
+    secondary fields, normalizes against the canonical taxonomies, enforces the
+    `required` document-type rule, and serializes.
     """
     results = []
-    for ext, ev in zip(extracted, evaluated, strict=True):
-        item = TechnicalSkillItem(
-            skill=ext.skill,
-            seniority_level=ev.seniority_level,
-            experience_years=ev.experience_years,
-            required=ev.required,
-            evidences=EvidenceContainer(
-                technical_skills=TechnicalSkillEvidence(
-                    text=ext.evidence_text,
-                    accuracy=ev.accuracy,
-                    justification=ext.justification,
-                    evaluator_justification=ev.evaluator_justification,
-                )
-            ),
-        )
-
-        if item.evidences.technical_skills.accuracy < ACCURACY_THRESHOLD:
+    for item in evaluated:
+        if item.evidences.skill.accuracy < ACCURACY_THRESHOLD:
             continue
+
+        for field in _SECONDARY_FIELDS:
+            evidence = getattr(item.evidences, field)
+            if evidence is None:
+                continue
+            if evidence.accuracy < ACCURACY_THRESHOLD:
+                setattr(item, field, None)
+                evidence.grounding_text = ""
+            if getattr(item, field) is None:
+                evidence.grounding_text = ""
 
         item.skill = normalize_technical_skill(item.skill) or item.skill
         if item.seniority_level is not None:
             item.seniority_level = (
                 normalize_seniority_level(item.seniority_level) or item.seniority_level
             )
-        if doc_type == "resume":
-            item.required = None
 
-        results.append(item.model_dump(exclude_none=True))
+        dump = item.model_dump()
+        if doc_type == "resume":
+            dump.pop("required", None)
+            dump["evidences"].pop("required", None)
+        results.append(dump)
     return results
 
 
@@ -265,4 +261,4 @@ async def run_technical_skills_pipeline(
         return []
 
     evaluated = await _evaluate_all(content, doc_type, extracted, max_retries)
-    return _synthesize(doc_type, extracted, evaluated)
+    return _synthesize(doc_type, evaluated)

@@ -8,12 +8,14 @@ from claude_agent_sdk import AssistantMessage, TextBlock
 
 from mcp_skills_extractor_agents.agents.technical_skills import orchestrator as module
 from mcp_skills_extractor_agents.agents.technical_skills.orchestrator import (
-    _EvaluatedSkill,
     _extract_json_array,
-    _ExtractedSkill,
     _make_batches,
-    _synthesize,
     run_technical_skills_pipeline,
+)
+from mcp_skills_extractor_agents.agents.technical_skills.schemas import (
+    FieldEvidence,
+    SkillEvidences,
+    TechnicalSkillItem,
 )
 
 
@@ -58,7 +60,12 @@ def _mock_agent(
     )
 
 
-def test_extract_json_array_strips_markdown_fences():
+def _abstained_evidence(justification: str = "not stated", **extra) -> dict:
+    """Builds a FieldEvidence-shaped dict for a field the extractor left undetermined."""
+    return {"grounding_text": "", "justification": justification, **extra}
+
+
+def test_extract_json_array_strips_markdown_code_fences():
     # Act
     result = _extract_json_array("```json\n[1, 2]\n```")
 
@@ -98,14 +105,38 @@ async def test_run_evaluator_batch_retries_on_length_mismatch(monkeypatch):
         [
             {
                 "skill": "Python",
-                "evidence_text": "Python experience",
-                "justification": "mentions Python",
+                "evidences": {
+                    "skill": {
+                        "grounding_text": "Python experience",
+                        "justification": "mentions Python",
+                    },
+                    "seniority_level": _abstained_evidence(),
+                    "experience_years": _abstained_evidence(),
+                },
             }
         ]
     )
     mismatched = json.dumps([])  # 0 items, expected 1 -> triggers a correction retry
     corrected = json.dumps(
-        [{"skill": "Python", "accuracy": 1.0, "evaluator_justification": "confirmed"}]
+        [
+            {
+                "skill": "Python",
+                "evidences": {
+                    "skill": {
+                        "grounding_text": "Python experience",
+                        "justification": "mentions Python",
+                        "accuracy": 1.0,
+                        "evaluator_justification": "confirmed",
+                    },
+                    "seniority_level": _abstained_evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                    "experience_years": _abstained_evidence(
+                        accuracy=1.0, evaluator_justification="confirmed abstention"
+                    ),
+                },
+            }
+        ]
     )
     sessions = iter([[extracted_json], [mismatched, corrected]])
 
@@ -127,13 +158,27 @@ async def test_run_evaluator_batch_retries_on_length_mismatch(monkeypatch):
     assert result == [
         {
             "skill": "Python",
+            "seniority_level": None,
+            "experience_years": None,
             "evidences": {
-                "technical_skills": {
-                    "text": "Python experience",
-                    "accuracy": 1.0,
+                "skill": {
+                    "grounding_text": "Python experience",
                     "justification": "mentions Python",
                     "evaluator_justification": "confirmed",
-                }
+                    "accuracy": 1.0,
+                },
+                "seniority_level": {
+                    "grounding_text": "",
+                    "justification": "not stated",
+                    "evaluator_justification": "confirmed abstention",
+                    "accuracy": 1.0,
+                },
+                "experience_years": {
+                    "grounding_text": "",
+                    "justification": "not stated",
+                    "evaluator_justification": "confirmed abstention",
+                    "accuracy": 1.0,
+                },
             },
         }
     ]
@@ -147,69 +192,325 @@ def test_make_batches_splits_into_chunks_of_size():
     assert result == [[0, 1, 2], [3, 4, 5], [6]]
 
 
-def test_synthesize_keeps_required_for_job_posting():
+def test_strip_for_evaluator_drops_unevaluated_keys_for_resume_item():
     # Arrange
-    extracted = [
-        _ExtractedSkill(
-            skill="Python", evidence_text="Must know Python", justification="mandatory"
-        )
-    ]
-    evaluated = [
-        _EvaluatedSkill(
-            skill="Python",
-            required=True,
-            accuracy=1.0,
-            evaluator_justification="confirmed",
-        )
-    ]
+    item = TechnicalSkillItem(
+        skill="Python",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Experience with Python", justification="mentions Python"
+            ),
+            seniority_level=FieldEvidence(justification="not stated"),
+            experience_years=FieldEvidence(justification="not stated"),
+        ),
+    )
 
     # Act
-    result = _synthesize("job_posting", extracted, evaluated)
+    stripped = module._strip_for_evaluator(item)
 
     # Assert
-    assert result[0]["required"] is True
+    assert stripped["evidences"]["required"] is None
+    for field in ("skill", "seniority_level", "experience_years"):
+        assert "accuracy" not in stripped["evidences"][field]
+        assert "evaluator_justification" not in stripped["evidences"][field]
 
 
-def test_synthesize_normalizes_seniority_level_when_present():
+def test_strip_for_evaluator_drops_required_evidence_keys_for_job_posting_item():
     # Arrange
-    extracted = [
-        _ExtractedSkill(
-            skill="JS", evidence_text="Senior JS engineer", justification="title"
-        )
-    ]
-    evaluated = [
-        _EvaluatedSkill(
-            skill="JS",
-            seniority_level="Sr",
-            accuracy=1.0,
-            evaluator_justification="confirmed",
-        )
-    ]
+    item = TechnicalSkillItem(
+        skill="Python",
+        required=True,
+        evidences=SkillEvidences(
+            skill=FieldEvidence(grounding_text="Python", justification="mentions Python"),
+            seniority_level=FieldEvidence(justification="not stated"),
+            experience_years=FieldEvidence(justification="not stated"),
+            required=FieldEvidence(
+                grounding_text="Must know Python", justification="mandatory"
+            ),
+        ),
+    )
 
     # Act
-    result = _synthesize("resume", extracted, evaluated)
+    stripped = module._strip_for_evaluator(item)
+
+    # Assert
+    assert "accuracy" not in stripped["evidences"]["required"]
+    assert "evaluator_justification" not in stripped["evidences"]["required"]
+
+
+def test_synthesize_filters_item_with_low_skill_accuracy():
+    # Arrange
+    kept = TechnicalSkillItem(
+        skill="Python",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Experience with Python",
+                justification="mentions Python",
+                accuracy=0.85,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+        ),
+    )
+    dropped = TechnicalSkillItem(
+        skill="Kubernetes",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Experience with Docker",
+                justification="assumed from Docker",
+                accuracy=0.4,
+                evaluator_justification="document only mentions Docker",
+            ),
+            seniority_level=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [kept, dropped])
+
+    # Assert
+    assert len(result) == 1
+    assert result[0]["skill"] == "Python"
+
+
+def test_synthesize_nullifies_secondary_field_with_low_accuracy():
+    # Arrange
+    item = TechnicalSkillItem(
+        skill="Python",
+        seniority_level="Senior",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Familiar with Python",
+                justification="mentions Python",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                grounding_text="Familiar with Python",
+                justification="guessed from the skill alone",
+                accuracy=0.2,
+                evaluator_justification="not supported by text",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [item])
+
+    # Assert
+    assert result[0]["seniority_level"] is None
+    assert result[0]["evidences"]["seniority_level"]["grounding_text"] == ""
+    assert (
+        result[0]["evidences"]["seniority_level"]["evaluator_justification"]
+        == "not supported by text"
+    )
+
+
+def test_synthesize_preserves_correct_abstention():
+    # Arrange
+    item = TechnicalSkillItem(
+        skill="Python",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Skills: Python, Docker",
+                justification="listed in skills section",
+                accuracy=1.0,
+                evaluator_justification="confirmed present",
+            ),
+            seniority_level=FieldEvidence(
+                justification=(
+                    "Listed only in skills section without proficiency descriptor "
+                    "or date range."
+                ),
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention: no descriptor in text",
+            ),
+            experience_years=FieldEvidence(
+                justification=(
+                    "Listed only in skills section without proficiency descriptor "
+                    "or date range."
+                ),
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention: no date range in text",
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [item])
+
+    # Assert
+    assert result[0]["seniority_level"] is None
+    assert result[0]["evidences"]["seniority_level"]["grounding_text"] == ""
+    assert result[0]["evidences"]["seniority_level"]["accuracy"] == 1.0
+
+
+def test_synthesize_keeps_evaluator_recovered_secondary_field():
+    # Arrange
+    item = TechnicalSkillItem(
+        skill="Apache Kafka",
+        seniority_level="Senior",
+        experience_years=4,
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Architected event-driven pipelines using Apache Kafka",
+                justification="explicit mention",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                grounding_text="Senior Backend Engineer (2021 - 2025)",
+                justification="role title recovered by evaluator",
+                accuracy=1.0,
+                evaluator_justification=(
+                    "extractor missed the role title; recovered Senior from it"
+                ),
+            ),
+            experience_years=FieldEvidence(
+                grounding_text="Senior Backend Engineer (2021 - 2025)",
+                justification="2021-2025 recovered by evaluator",
+                accuracy=1.0,
+                evaluator_justification=(
+                    "extractor missed the date range; recovered 4 years from it"
+                ),
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [item])
+
+    # Assert
+    assert result[0]["seniority_level"] == "Senior"
+    assert result[0]["experience_years"] == 4
+    assert result[0]["evidences"]["seniority_level"][
+        "evaluator_justification"
+    ].startswith("extractor missed")
+
+
+def test_synthesize_normalizes_skill_and_seniority_level_aliases():
+    # Arrange
+    item = TechnicalSkillItem(
+        skill="JS",
+        seniority_level="Sr",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Senior JS engineer",
+                justification="title",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                grounding_text="Senior JS engineer",
+                justification="title",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [item])
 
     # Assert
     assert result[0]["skill"] == "JavaScript"
     assert result[0]["seniority_level"] == "Senior"
 
 
-def test_synthesize_forces_required_none_for_resume():
+def test_synthesize_includes_required_for_job_posting():
     # Arrange
-    extracted = [
-        _ExtractedSkill(skill="Python", evidence_text="Python", justification="j")
-    ]
-    evaluated = [
-        _EvaluatedSkill(
-            skill="Python",
-            required=True,
-            accuracy=1.0,
-            evaluator_justification="confirmed",
-        )
-    ]
+    item = TechnicalSkillItem(
+        skill="Python",
+        required=True,
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Must know Python",
+                justification="mandatory",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+            required=FieldEvidence(
+                grounding_text="Must know Python",
+                justification="mandatory",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+        ),
+    )
 
     # Act
-    result = _synthesize("resume", extracted, evaluated)
+    result = module._synthesize("job_posting", [item])
+
+    # Assert
+    assert result[0]["required"] is True
+    assert result[0]["evidences"]["required"]["accuracy"] == 1.0
+
+
+def test_synthesize_omits_required_for_resume():
+    # Arrange
+    item = TechnicalSkillItem(
+        skill="Python",
+        evidences=SkillEvidences(
+            skill=FieldEvidence(
+                grounding_text="Python",
+                justification="mentions Python",
+                accuracy=1.0,
+                evaluator_justification="confirmed",
+            ),
+            seniority_level=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+            experience_years=FieldEvidence(
+                justification="not stated",
+                accuracy=1.0,
+                evaluator_justification="confirmed abstention",
+            ),
+        ),
+    )
+
+    # Act
+    result = module._synthesize("resume", [item])
 
     # Assert
     assert "required" not in result[0]
+    assert "required" not in result[0]["evidences"]
