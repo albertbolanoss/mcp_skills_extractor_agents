@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+.env
+.env.sample
+.pytest_cache
+.ruff_cache
+__pycache__
+*.py[oc]
+.coverage
+helm/
+tests/
+.claude/
