@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An **MCP server** (`mcp` SDK v2, `MCPServer`) that exposes 4 resume/job-posting skill-extraction
 tools and 1 coordinator prompt over `stdio`, streamable `http`, and `sse` transports. Each tool
-runs a real **Claude Agent SDK** agent (via `claude-agent-sdk` + `labs-agent-lib`), grounded in
-this project's own canonical taxonomies under `server/resources/`.
+runs one or more real **Claude Agent SDK** agents (via `claude-agent-sdk` + `labs-agent-lib`),
+grounded in this project's own canonical taxonomies under `server/resources/`.
 
 This repo is the extraction piece of a hub-and-spoke system: `talent-distiller-agent` (sibling
 repo) uploads resumes/job postings and runs the coordinator workflow against this server's
@@ -60,12 +60,13 @@ deployment pins a subset of tools to a given pod. `EXTRACTION_TOOL_NAMES` (built
 tools actually got registered) feeds into the coordinator prompt so it never references a tool
 that isn't live on this server instance.
 
-### The 4 extraction tools are one template, copy-pasted 4 times
+### 3 of the 4 extraction tools are one template, copy-pasted 3 times
 
-`server/tools/{technical_skill,soft_skill,certification_skill,language_skill}_extraction.py`
-are structurally identical — when changing the shared behavior (retry loop, observability
-wiring, JSON-array extraction, prompt shape), change it in **all four** files, not just one.
-Each follows the same shape:
+`server/tools/{soft_skill,certification_skill,language_skill}_extraction.py` are structurally
+identical — when changing the shared behavior (retry loop, observability wiring, JSON-array
+extraction, prompt shape), change it in **all three** files, not just one. `technical_skill_extraction.py`
+no longer follows this template — see the next section. Each of the three still follows the
+same shape:
 
 1. An `AgentDefinition` with a pinned model id (`us.anthropic.claude-sonnet-5` — pinned, not
    the `"sonnet"` alias, because the alias can resolve to a model id a given Portkey/Bedrock
@@ -89,6 +90,38 @@ Each follows the same shape:
 
 Every tool also accepts `correlation_id: str = ""`, threaded through unchanged to
 `ToolObservability` for cross-service tracing — see below.
+
+### `extract_technical_skills` is a Generator-Evaluator pipeline, not the template above
+
+`server/tools/technical_skill_extraction.py` is now a thin `@mcp.tool()` wrapper that
+delegates to `run_technical_skills_pipeline` in `agents/technical_skills/` (`schemas.py`,
+`prompts.py`, `definitions.py`, `orchestrator.py`). Unlike the other 3 tools' single
+extract-and-normalize turn, this one runs two agents per call:
+
+1. **Extractor** (`EXTRACTOR_AGENT_DEFINITION`, pinned `us.anthropic.claude-sonnet-5`) extracts
+   candidate skills in one turn, actively attempting `seniority_level`/`experience_years`
+   (incl. chronological date-range math) and attaching a per-field `FieldEvidence`
+   (`grounding_text`, `justification`) to every attribute, even `null` ones.
+2. Items are batched (`EVAL_BATCH_SIZE = 10`) and audited concurrently via `asyncio.gather` by
+   an **Evaluator** (`EVALUATOR_AGENT_DEFINITION`, pinned
+   `us.anthropic.claude-haiku-4-5-20251001-v1:0` — there is no bare `claude-haiku-5` id on this
+   project's Bedrock/Portkey allow-list, unlike `claude-sonnet-5`; re-check the gateway's model
+   list before changing this), which scores each field's `accuracy` (0.0–1.0) and may correct or
+   null it out. `_merge_evaluated_item` then deterministically delta-merges the evaluator's
+   (possibly partial) response back onto the extractor's original item, so the evaluator never
+   has to re-emit unchanged `grounding_text`/`justification` to save output tokens.
+3. A pure-Python `_synthesize` step drops skills with `evidences.skill.accuracy < 0.7`, nullifies
+   any other low-accuracy field, normalizes against `server/resources/*`, and applies the
+   resume/job_posting field-presence rules.
+
+**Circular-import gotcha**: `agents/technical_skills/` depends on `server/resources/*`
+(taxonomies, `normalize_*()`), and importing any submodule of `server` first fully runs
+`server/__init__.py`, which eagerly imports `server.tools` (see the section above) — which would
+otherwise need `agents.technical_skills` back. `technical_skill_extraction.py` breaks this cycle
+by importing `run_technical_skills_pipeline` *inside* the tool function body, not at module
+level; don't "simplify" that back to a top-level import. Tests patch the pipeline at its source
+(`mcp_skills_extractor_agents.agents.technical_skills.run_technical_skills_pipeline`) rather than
+on the tool module, since the tool module has no module-level binding to patch.
 
 ### Canonical taxonomies (`server/resources/`)
 
@@ -116,10 +149,13 @@ sibling `talent_distiller_agent` repo — full design in
 - **Agent transcript** (`agent_transcript.py`) — one ordered event per step of a single tool
   call (`session_start`, `assistant_text`, `retry`, `session_end`): "what happened in this call,
   attempt by attempt." Good for replaying one call end-to-end.
-- **`tool_observability.py`**'s `ToolObservability` is the single recorder each of the 4 tool
-  files instantiates per call, wiring both writers so the retry loop's instrumentation
-  (`log_attempt_prompt` / `log_attempt_response` / `log_retry` / `log_success` / `log_failure`)
-  is identical across all 4 tools without duplicating JSONL-writing logic in each.
+- **`tool_observability.py`**'s `ToolObservability` is the single recorder each of the 4 tools
+  instantiates per call (for `extract_technical_skills`, that's `orchestrator.py` instantiating
+  one per agent session — the extractor plus each concurrent evaluator batch, each under its
+  own `tool_name` suffix so concurrent batches don't interleave writes into one file), wiring
+  both writers so the retry loop's instrumentation (`log_attempt_prompt` / `log_attempt_response`
+  / `log_retry` / `log_success` / `log_failure`) is identical across all 4 tools without
+  duplicating JSONL-writing logic in each.
 - **`_jsonl_writer.py`** is the shared `append_jsonl` helper. Each tool call writes to its own
   file, `{prompt_log_dir|agent_transcript_dir}/{correlation_id}__{tool_name}.jsonl`, because up
   to 4 extraction tools run concurrently for the same `correlation_id` (the coordinator fans

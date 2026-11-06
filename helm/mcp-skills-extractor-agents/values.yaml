@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: luigisamurai/mcp-skills-extractor-agents
-  tag: "0.1.0"
+  tag: "0.1.1"
   pullPolicy: Always
 
 imagePullSecrets: []
@@ -33,10 +33,10 @@ probes:
 resources:
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 512Mi
   limits:
     cpu: 500m
-    memory: 512Mi
+    memory: 1536Mi
 
 config:
   # --- mcp_skills_extractor_agents.server.mcp_server: transport args ---

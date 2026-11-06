@@ -36,6 +36,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PORT=8000
 
+RUN mkdir -p /app/documentation/prompt_log /app/documentation/agent_transcript \
+    && chown -R appuser:appuser /app/documentation
+
 USER appuser
 
 EXPOSE 8000

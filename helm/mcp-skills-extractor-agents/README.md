@@ -24,9 +24,9 @@ docker build -t mcp-skills-extractor-agents:local .
 docker run --rm -p 8000:8000 mcp-skills-extractor-agents:local
 
 # Build and publish to a registry
-docker build -t mcp-skills-extractor-agents:0.1.0 .
-docker tag mcp-skills-extractor-agents:0.1.0 luigisamurai/mcp-skills-extractor-agents:0.1.0
-docker push luigisamurai/mcp-skills-extractor-agents:0.1.0
+docker build -t mcp-skills-extractor-agents:0.1.1 .
+docker tag mcp-skills-extractor-agents:0.1.1 luigisamurai/mcp-skills-extractor-agents:0.1.1
+docker push luigisamurai/mcp-skills-extractor-agents:0.1.1
 ```
 
 The image's default command runs the `candidate-skill-agent` entrypoint over streamable HTTP
@@ -63,7 +63,7 @@ time — never commit one to `values.yaml`:
 ```sh
 # Install the chart - a single release running every tool
 helm install mcp-skills-extractor-agents ./helm/mcp-skills-extractor-agents \
-  --set secrets.portkeyApiKey=***
+  --set secrets.portkeyApiKey=**
 
 # ...or upgrade an existing install
 helm upgrade mcp-skills-extractor-agents ./helm/mcp-skills-extractor-agents \
@@ -88,25 +88,13 @@ resource it creates (`<release>-mcp-skills-extractor-agents`) unless you also se
 Each release needs its own credential too (every pod runs its own Claude Agent SDK agent):
 
 ```sh
-helm install skill-agent-technical ./helm/mcp-skills-extractor-agents \
-  --set config.activeTools="{extract_technical_skills}" \
-  --set fullnameOverride=skill-agent-technical \
-  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
+helm install skill-agent-technical ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_technical_skills}" --set fullnameOverride=skill-agent-technical --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
 
-helm install skill-agent-soft ./helm/mcp-skills-extractor-agents \
-  --set config.activeTools="{extract_soft_skills}" \
-  --set fullnameOverride=skill-agent-soft \
-  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
+helm install skill-agent-soft ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_soft_skills}" --set fullnameOverride=skill-agent-soft --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
 
-helm install skill-agent-certifications ./helm/mcp-skills-extractor-agents \
-  --set config.activeTools="{extract_certifications}" \
-  --set fullnameOverride=skill-agent-certifications \
-  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
+helm install skill-agent-certifications ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_certifications}" --set fullnameOverride=skill-agent-certifications --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
 
-helm install skill-agent-languages ./helm/mcp-skills-extractor-agents \
-  --set config.activeTools="{extract_languages}" \
-  --set fullnameOverride=skill-agent-languages \
-  --set secrets.portkeyApiKey=3S0UaHK0QG6bRMeSc4wIql2BGPR8
+helm install skill-agent-languages ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_languages}" --set fullnameOverride=skill-agent-languages --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
 ```
 
 Each release gets its own `Service` (named after the release, via the chart's fullname
