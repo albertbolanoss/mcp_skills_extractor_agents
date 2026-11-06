@@ -17,7 +17,9 @@ async def test_extract_technical_skills_delegates_to_the_pipeline(monkeypatch):
     # Arrange
     captured = {}
 
-    async def fake_pipeline(*, content, doc_type, max_retries, correlation_id):
+    async def fake_pipeline(
+        *, content, doc_type, max_retries, correlation_id, report_progress
+    ):
         captured["content"] = content
         captured["doc_type"] = doc_type
         captured["max_retries"] = max_retries
@@ -49,7 +51,9 @@ async def test_extract_technical_skills_uses_default_max_retries_and_correlation
     # Arrange
     captured = {}
 
-    async def fake_pipeline(*, content, doc_type, max_retries, correlation_id):
+    async def fake_pipeline(
+        *, content, doc_type, max_retries, correlation_id, report_progress
+    ):
         captured["max_retries"] = max_retries
         captured["correlation_id"] = correlation_id
         return []
@@ -68,7 +72,9 @@ async def test_extract_technical_skills_uses_default_max_retries_and_correlation
 
 async def test_extract_technical_skills_propagates_pipeline_failure(monkeypatch):
     # Arrange
-    async def fake_pipeline(*, content, doc_type, max_retries, correlation_id):
+    async def fake_pipeline(
+        *, content, doc_type, max_retries, correlation_id, report_progress
+    ):
         raise RuntimeError("agent failed to produce valid JSON")
 
     monkeypatch.setattr(
@@ -78,3 +84,52 @@ async def test_extract_technical_skills_propagates_pipeline_failure(monkeypatch)
     # Act / Assert
     with pytest.raises(RuntimeError):
         await extract_technical_skills("whatever", "resume")
+
+
+async def test_extract_technical_skills_relays_progress_to_the_mcp_context(monkeypatch):
+    # Arrange: a `ctx` with a `report_progress` the real MCPServer.Context exposes,
+    # confirming the wrapper's progress callback reaches it instead of silently no-oping.
+    reported: list[tuple[float, str | None]] = []
+
+    class _FakeContext:
+        async def report_progress(self, progress, total=None, message=None):
+            reported.append((progress, message))
+
+    captured_report_progress = {}
+
+    async def fake_pipeline(
+        *, content, doc_type, max_retries, correlation_id, report_progress
+    ):
+        captured_report_progress["callback"] = report_progress
+        await report_progress("extractor attempt 1/1")
+        return []
+
+    monkeypatch.setattr(
+        pipeline_package, "run_technical_skills_pipeline", fake_pipeline
+    )
+
+    # Act
+    await extract_technical_skills("whatever", "resume", ctx=_FakeContext())
+
+    # Assert
+    assert reported == [(0, "extractor attempt 1/1")]
+
+
+async def test_extract_technical_skills_progress_callback_is_a_no_op_without_context(
+    monkeypatch,
+):
+    # Arrange: no `ctx` (e.g. a direct/manual call) must not blow up when the pipeline
+    # invokes the progress callback.
+    async def fake_pipeline(
+        *, content, doc_type, max_retries, correlation_id, report_progress
+    ):
+        await report_progress("extractor attempt 1/1")
+        return []
+
+    monkeypatch.setattr(
+        pipeline_package, "run_technical_skills_pipeline", fake_pipeline
+    )
+
+    # Act / Assert
+    result = await extract_technical_skills("whatever", "resume")
+    assert result == []

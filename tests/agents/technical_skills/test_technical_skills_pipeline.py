@@ -207,7 +207,7 @@ async def test_batch_evaluation_concurrency(monkeypatch):
     batch_calls = []
 
     async def fake_run_evaluator_batch(
-        batch, content, doc_type, max_retries, correlation_id, batch_index
+        batch, content, doc_type, max_retries, correlation_id, batch_index, report_progress=None
     ):
         batch_calls.append(list(batch))
         return batch
@@ -352,6 +352,40 @@ async def test_doc_type_required_field_handling_job_posting_includes_required(
     # Assert
     assert result["required"] is True
     assert result["evidences"]["required"]["accuracy"] == 1.0
+
+
+# --- report_progress threading -------------------------------------------------------
+
+
+async def test_pipeline_forwards_report_progress_to_extractor_and_evaluator_batches(
+    monkeypatch,
+):
+    # Arrange
+    extracted_items = [_minimal_item("Python")]
+    received = {"extractor": None, "evaluator": None}
+
+    async def fake_run_extractor(*args, report_progress=None, **kwargs):
+        received["extractor"] = report_progress
+        return extracted_items
+
+    async def fake_run_evaluator_batch(*args, report_progress=None, **kwargs):
+        received["evaluator"] = report_progress
+        return args[0]
+
+    monkeypatch.setattr(orchestrator, "_run_extractor", fake_run_extractor)
+    monkeypatch.setattr(orchestrator, "_run_evaluator_batch", fake_run_evaluator_batch)
+
+    async def report_progress(message: str) -> None:
+        return None
+
+    # Act
+    await run_technical_skills_pipeline(
+        "resume text", "resume", report_progress=report_progress
+    )
+
+    # Assert
+    assert received["extractor"] is report_progress
+    assert received["evaluator"] is report_progress
 
 
 # --- full pipeline, end-to-end through real (faked-client) agent sessions ----------

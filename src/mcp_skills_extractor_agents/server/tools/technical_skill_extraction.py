@@ -11,6 +11,7 @@ deterministic Python synthesis pass. See
 from typing import Literal
 
 from labs_agent_lib import get_logger
+from mcp.server.mcpserver import Context
 
 from ..mcp_server import mcp
 
@@ -23,6 +24,7 @@ async def extract_technical_skills(
     doc_type: Literal["resume", "job_posting"],
     max_retries: int = 2,
     correlation_id: str = "",
+    ctx: Context | None = None,
 ) -> list[dict]:
     """
     Extracts technical skills from resume or job-posting text, using an evidence-
@@ -58,9 +60,15 @@ async def extract_technical_skills(
         doc_type,
         max_retries,
     )
+
+    async def _report_progress(message: str) -> None:
+        if ctx is not None:
+            await ctx.report_progress(progress=0, message=message)
+
     return await run_technical_skills_pipeline(
         content=content,
         doc_type=doc_type,
         max_retries=max_retries,
         correlation_id=correlation_id,
+        report_progress=_report_progress,
     )

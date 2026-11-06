@@ -20,7 +20,7 @@ Pipeline stages:
 
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import lru_cache
 from typing import Literal
 
@@ -52,6 +52,13 @@ logger = get_logger(__name__)
 
 EVAL_BATCH_SIZE = 10
 ACCURACY_THRESHOLD = 0.7
+
+# Reports a human-readable status string for the in-flight MCP tool call. The caller
+# (the `extract_technical_skills` wrapper) turns this into an MCP progress notification,
+# which resets the calling `claude` subprocess's idle-timeout clock - this pipeline's
+# multiple nested Claude Agent SDK sessions can otherwise run long enough with no single
+# session's response to trip that timeout even though the pipeline is still healthy.
+ProgressReporter = Callable[[str], Awaitable[None]]
 
 
 @lru_cache(maxsize=1)
@@ -174,6 +181,7 @@ async def _run_agent_session(
     parse: Callable[[str], list[TechnicalSkillItem]],
     max_retries: int,
     failure_label: str,
+    report_progress: ProgressReporter | None = None,
 ) -> list[TechnicalSkillItem]:
     """Runs one self-correcting Claude Agent SDK session.
 
@@ -189,6 +197,8 @@ async def _run_agent_session(
 
     async with ClaudeSDKClient(options=options) as client:
         for attempt in range(attempts):
+            if report_progress is not None:
+                await report_progress(f"{failure_label} attempt {attempt + 1}/{attempts}")
             observability.log_attempt_prompt(prompt=prompt, attempt=attempt + 1)
             raw_text, session_id = await _ask(client, prompt)
             observability.log_attempt_response(text=raw_text, session_id=session_id)
@@ -218,7 +228,11 @@ async def _run_agent_session(
 
 
 async def _run_extractor(
-    content: str, doc_type: str, max_retries: int, correlation_id: str
+    content: str,
+    doc_type: str,
+    max_retries: int,
+    correlation_id: str,
+    report_progress: ProgressReporter | None = None,
 ) -> list[TechnicalSkillItem]:
     """Generator stage: one single-turn extraction, with self-correction retries."""
     return await _run_agent_session(
@@ -233,6 +247,7 @@ async def _run_extractor(
         parse=_parse_extracted,
         max_retries=max_retries,
         failure_label="extract_technical_skills.extractor",
+        report_progress=report_progress,
     )
 
 
@@ -243,6 +258,7 @@ async def _run_evaluator_batch(
     max_retries: int,
     correlation_id: str,
     batch_index: int,
+    report_progress: ProgressReporter | None = None,
 ) -> list[TechnicalSkillItem]:
     """Evaluator stage for one batch: audits every field, then delta-merges the result
     back onto `batch`'s original evidence (see `_merge_evaluated_item`)."""
@@ -258,6 +274,7 @@ async def _run_evaluator_batch(
         parse=lambda raw_text: _parse_evaluated(raw_text, batch),
         max_retries=max_retries,
         failure_label="extract_technical_skills.evaluator",
+        report_progress=report_progress,
     )
 
 
@@ -303,6 +320,7 @@ async def run_technical_skills_pipeline(
     doc_type: Literal["resume", "job_posting"],
     max_retries: int = 2,
     correlation_id: str = "",
+    report_progress: ProgressReporter | None = None,
 ) -> list[dict]:
     """
     Runs the full evidence-grounded technical-skills pipeline.
@@ -322,6 +340,10 @@ async def run_technical_skills_pipeline(
         correlation_id: Cross-service id propagated by the coordinator so this call's
             prompt-log/transcript entries can be joined with the coordinator's own run.
             Empty when the caller doesn't provide one (e.g. manual MCP Inspector calls).
+        report_progress: Optional async callback invoked once per agent attempt (the
+            Extractor, and independently each Evaluator batch) so the caller can relay
+            an MCP progress notification and keep the calling client's idle-timeout from
+            tripping during this pipeline's longer, multi-session runs.
     """
     logger.info(
         "Running technical-skills pipeline for doc_type=%s (max_retries=%d)",
@@ -329,14 +351,22 @@ async def run_technical_skills_pipeline(
         max_retries,
     )
 
-    extracted = await _run_extractor(content, doc_type, max_retries, correlation_id)
+    extracted = await _run_extractor(
+        content, doc_type, max_retries, correlation_id, report_progress=report_progress
+    )
     if not extracted:
         return []
 
     evaluated_batches = await asyncio.gather(
         *(
             _run_evaluator_batch(
-                batch, content, doc_type, max_retries, correlation_id, index
+                batch,
+                content,
+                doc_type,
+                max_retries,
+                correlation_id,
+                index,
+                report_progress=report_progress,
             )
             for index, batch in enumerate(_batches(extracted, EVAL_BATCH_SIZE))
         )

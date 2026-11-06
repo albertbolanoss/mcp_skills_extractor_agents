@@ -527,6 +527,40 @@ async def test_run_extractor_raises_after_exhausting_retries(monkeypatch):
         )
 
 
+async def test_run_extractor_reports_progress_once_per_attempt(monkeypatch):
+    # Arrange
+    valid_json = json.dumps(
+        [
+            {
+                "skill": "Go",
+                "evidences": {
+                    "skill": {"grounding_text": "Go developer", "justification": "stated"}
+                },
+            }
+        ]
+    )
+    _mock_agent(monkeypatch, [["not json", valid_json]])
+    reported: list[str] = []
+
+    async def report_progress(message: str) -> None:
+        reported.append(message)
+
+    # Act
+    await module._run_extractor(
+        "Go developer",
+        "resume",
+        max_retries=1,
+        correlation_id="corr-1",
+        report_progress=report_progress,
+    )
+
+    # Assert
+    assert reported == [
+        "extract_technical_skills.extractor attempt 1/2",
+        "extract_technical_skills.extractor attempt 2/2",
+    ]
+
+
 async def test_run_extractor_uses_single_turn_tool_free_options(monkeypatch):
     # Arrange
     valid_json = json.dumps(
