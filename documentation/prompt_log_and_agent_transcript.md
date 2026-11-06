@@ -105,7 +105,7 @@ per `{correlation_id}__{tool_name}` (see that repo's own
 `documentation/prompt_log_and_agent_transcript.md` for why). Each project still supplies
 its *own* settings object (`SkillAgentSettings.observability_enabled`/`prompt_log_dir`/
 `agent_transcript_dir`) and a `service` name at construction time - nothing about the
-`CANDIDATE_SKILL_AGENT_*` env vars moved.
+`MCP_SKILLS_EXTRACTOR_AGENTS_*` env vars moved.
 
 What **does** stay local to this repo is `src/mcp_skills_extractor_agents/observability/tool_observability.py`
 (`ToolObservability`) - a small per-call recorder that constructs the shared writers with
@@ -129,7 +129,7 @@ outside the environment that produced them.
 
 ## 6. Configuration
 
-| Setting (`CANDIDATE_SKILL_AGENT_` prefix) | Default | Purpose |
+| Setting (`MCP_SKILLS_EXTRACTOR_AGENTS_` prefix) | Default | Purpose |
 |---|---|---|
 | `OBSERVABILITY_ENABLED` | `true` | Master on/off switch for both writers. |
 | `PROMPT_LOG_DIR` | `documentation/prompt_log` | Where prompt-log JSONL files are written. |

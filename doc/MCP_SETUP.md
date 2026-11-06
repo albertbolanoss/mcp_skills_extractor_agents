@@ -95,9 +95,9 @@ curl -i -N http://127.0.0.1:8000/sse
 # Sintaxis general:
 claude mcp add <nombre> <comando> [args...] --scope <local|project|user>
 
-# Install candidate-skill-agent (local dev, from this checkout)
-claude mcp add candidate-skill-agent --scope project -- \
-    uv --directory /path/to/candidate-skill-agent run \
+# Install mcp-skills-extractor-agents (local dev, from this checkout)
+claude mcp add mcp-skills-extractor-agents --scope project -- \
+    uv --directory /path/to/mcp-skills-extractor-agents run \
     python -m mcp_skills_extractor_agents.main --protocol stdio
 
 # Stdio Server (local process, the most common):
@@ -123,7 +123,7 @@ claude mcp add-json <name> '<json>' # Add mcp server using Json
 ```json
 {
   "mcpServers": {
-    "candidate-skill-agent": {
+    "mcp-skills-extractor-agents": {
       "command": "uv",
       "args": ["run", "python", "-m", "mcp_skills_extractor_agents.main", "--protocol", "stdio"]
     }
@@ -157,9 +157,9 @@ or use **%APPDATA%\Claude\claude_desktop_config.json**
 ```json
 {
   "mcpServers": {
-    "candidate-skill-agent": {
+    "mcp-skills-extractor-agents": {
       "command": "uv",
-      "args": ["--directory", "C:\\path\\to\\candidate-skill-agent", "run", "python", "-m", "mcp_skills_extractor_agents.main", "--protocol", "stdio"]
+      "args": ["--directory", "C:\\path\\to\\mcp-skills-extractor-agents", "run", "python", "-m", "mcp_skills_extractor_agents.main", "--protocol", "stdio"]
     }
   }
 }

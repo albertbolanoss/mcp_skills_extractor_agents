@@ -1,12 +1,12 @@
 # Publishing an MCP Server package
 
-How to publish this project to PyPI so anyone can run it with `uvx candidate-skill-agent`.
+How to publish this project to PyPI so anyone can run it with `uvx mcp-skills-extractor-agents`.
 
 Registries: **[PyPI](https://pypi.org)** (real) and **[TestPyPI](https://test.pypi.org)**
 (a throwaway copy to rehearse on). Runner tools: `uvx` (Python), `npx` (Node).
 
 > **Before publishing:** this package depends on `labs-agent-lib`, which itself is **not yet
-> on the real PyPI** (only on TestPyPI). Anyone installing `candidate-skill-agent` from the
+> on the real PyPI** (only on TestPyPI). Anyone installing `mcp-skills-extractor-agents` from the
 > real PyPI with `uvx`/`pip` will need `--extra-index-url https://test.pypi.org/simple/`
 > until `labs-agent-lib` graduates too — see the install examples below.
 
@@ -39,7 +39,7 @@ membership and permissions outlive any single account.
 | `version`                | Immutable once uploaded — bump it every release.                  |
 | `description`,`readme` | Shown on the project page.                                         |
 | `license` + `LICENSE`  | Legal terms; the file must match the declared license.             |
-| `[project.scripts]`      | Makes it runnable as a command (`uvx candidate-skill-agent`).    |
+| `[project.scripts]`      | Makes it runnable as a command (`uvx mcp-skills-extractor-agents`).    |
 
 ## 4. Get an API token
 
@@ -49,7 +49,7 @@ PyPI no longer accepts username/password for uploads — you upload with a **tok
    (https://pypi.org/manage/account/token/, and the same on TestPyPI).
 2. First release: scope = **"Entire account"** (the project doesn't exist yet, so you
    can't scope to it). After the first upload, delete it and create one **scoped to
-   `candidate-skill-agent`** — least privilege.
+   `mcp-skills-extractor-agents`** — least privilege.
 3. Copy the token (starts with `pypi-…`) **now** — it's shown only once.
 
 ### How to manage the token safely
@@ -84,7 +84,7 @@ uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-<TESTPYPI_TO
 # it only exists on TestPyPI, so this direction happens to "just work" here).
 uvx --index-url https://test.pypi.org/simple/ \
     --extra-index-url https://pypi.org/simple/ \
-    candidate-skill-agent --protocol stdio
+    mcp-skills-extractor-agents --protocol stdio
 ```
 
 ## 7. Publish to the real PyPI
@@ -98,7 +98,7 @@ Verify (note the extra index — `labs-agent-lib` only lives on TestPyPI today):
 ```sh
 uvx --index-url https://pypi.org/simple/ \
     --extra-index-url https://test.pypi.org/simple/ \
-    candidate-skill-agent --protocol stdio
+    mcp-skills-extractor-agents --protocol stdio
 ```
 
 ## 8. Release a new version
@@ -117,12 +117,12 @@ uvx --index-url https://pypi.org/simple/ \
 ```json
 {
   "mcpServers": {
-    "candidate-skill-agent": {
+    "mcp-skills-extractor-agents": {
       "command": "uvx",
       "args": [
         "--index-url", "https://pypi.org/simple/",
         "--extra-index-url", "https://test.pypi.org/simple/",
-        "candidate-skill-agent", "--protocol", "stdio"
+        "mcp-skills-extractor-agents", "--protocol", "stdio"
       ]
     }
   }
@@ -134,11 +134,11 @@ uvx --index-url https://pypi.org/simple/ \
 ```json
 {
   "mcpServers": {
-    "candidate-skill-agent": {
+    "mcp-skills-extractor-agents": {
       "command": "uvx",
       "args": [
-        "--from", "git+https://github.com/albertbolanoss/candidate-skill-agent",
-        "candidate-skill-agent", "--protocol", "stdio"
+        "--from", "git+https://github.com/albertbolanoss/mcp-skills-extractor-agents",
+        "mcp-skills-extractor-agents", "--protocol", "stdio"
       ]
     }
   }

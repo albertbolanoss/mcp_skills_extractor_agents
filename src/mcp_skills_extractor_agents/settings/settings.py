@@ -22,7 +22,7 @@ class ToolName(StrEnum):
 class SkillAgentSettings(BaseSettings):
     """Environment-driven configuration for Claude SDK skill extraction agents."""
 
-    model_config = SettingsConfigDict(env_prefix="CANDIDATE_SKILL_AGENT_")
+    model_config = SettingsConfigDict(env_prefix="MCP_SKILLS_EXTRACTOR_AGENTS_")
 
     active_tools: frozenset[ToolName] | None = Field(
         default=None,

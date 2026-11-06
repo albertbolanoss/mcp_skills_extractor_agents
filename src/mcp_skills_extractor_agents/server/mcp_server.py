@@ -1,6 +1,6 @@
 from mcp.server import MCPServer
 
-mcp = MCPServer("CandidateSkillAgent")
+mcp = MCPServer("MCPSkillsExtractorAgents")
 
 # Maps the CLI-friendly protocol names to the transport values MCPServer expects.
 _TRANSPORTS = {
@@ -15,7 +15,7 @@ def run_server(
     host: str = "127.0.0.1",
     port: int = 8000,
 ) -> None:
-    """Run the Candidate Skill Agent MCP server over the given transport protocol.
+    """Run the MCP Skills Extractor Agents server over the given transport protocol.
 
     Args:
         protocol: one of "stdio", "http" or "sse". Defaults to "stdio".

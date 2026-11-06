@@ -1,4 +1,4 @@
-"""Tests for the Candidate Skill Agent settings."""
+"""Tests for the MCP Skills Extractor Agents settings."""
 
 from mcp_skills_extractor_agents.settings import SkillAgentSettings, ToolName
 

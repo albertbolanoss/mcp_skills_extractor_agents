@@ -37,7 +37,7 @@ spec:
           # Set explicitly (not just `args`) so this doesn't depend on the image's own
           # ENTRYPOINT/CMD - `args` alone would run with no entrypoint if the image lacks one.
           command:
-            - "candidate-skill-agent"
+            - "mcp-skills-extractor-agents"
           args:
             - "--protocol"
             - {{ .Values.config.protocol | quote }}

@@ -3,7 +3,7 @@
 `SkillAgentSettings.active_tools` decides which of these modules get imported — and
 therefore which `@mcp.tool()` actually registers. Unset (the default) imports every
 tool, which is what local development against the MCP Inspector wants. A future Helm
-chart will set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` per deployed pod to restrict it to
+chart will set `MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS` per deployed pod to restrict it to
 a subset of tools.
 """
 

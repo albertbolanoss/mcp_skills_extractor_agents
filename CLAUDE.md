@@ -44,7 +44,7 @@ modifying any test.
 
 ### One `MCPServer` instance, built by side-effecting imports
 
-`server/mcp_server.py` creates the single module-level `mcp = MCPServer("CandidateSkillAgent")`
+`server/mcp_server.py` creates the single module-level `mcp = MCPServer("MCPSkillsExtractorAgents")`
 instance. Tools, prompts, and resources register themselves onto it via the `@mcp.tool()` /
 `@mcp.prompt()` decorators as a side effect of being imported — nothing is registered until its
 module is imported. `server/mcp_server.py`'s own `run_server()` imports `server/prompts`,
@@ -53,7 +53,7 @@ module is imported. `server/mcp_server.py`'s own `run_server()` imports `server/
 
 ### Tool gating via `server/tools/__init__.py`
 
-`SkillAgentSettings.active_tools` (env var `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS`, comma-separated)
+`SkillAgentSettings.active_tools` (env var `MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS`, comma-separated)
 decides which tool submodules `server/tools/__init__.py` imports — and therefore which
 `@mcp.tool()` actually registers. `None` (the default) imports all 4. This is how a Helm
 deployment pins a subset of tools to a given pod. `EXTRACTION_TOOL_NAMES` (built from whichever
@@ -130,11 +130,11 @@ sibling `talent_distiller_agent` repo — full design in
 - Both output directories are gitignored (`documentation/{prompt_log,agent_transcript}/*.jsonl`)
   — only `.gitkeep` is committed, because the `content` argument is full resume/job-posting text
   (PII) that these files reproduce verbatim. Controlled by
-  `CANDIDATE_SKILL_AGENT_OBSERVABILITY_ENABLED` (default `true`) and the `*_DIR` settings below.
+  `MCP_SKILLS_EXTRACTOR_AGENTS_OBSERVABILITY_ENABLED` (default `true`) and the `*_DIR` settings below.
 
 ### Settings
 
-`settings/settings.py`'s `SkillAgentSettings` (env prefix `CANDIDATE_SKILL_AGENT_`, cached
+`settings/settings.py`'s `SkillAgentSettings` (env prefix `MCP_SKILLS_EXTRACTOR_AGENTS_`, cached
 singleton via `get_skill_agent_settings()`) holds this server's own config: `active_tools`,
 `observability_enabled`, `prompt_log_dir`, `agent_transcript_dir`. Separately, every tool's
 actual Claude Agent SDK credentials/provider come from `labs-agent-lib`'s `AgentSettings`
@@ -153,5 +153,5 @@ emit no prose, and finish with the literal reply `DONE`. This prompt is consumed
 
 Two modes, not mutually exclusive: local dev process (commands above) vs. Kubernetes via Helm
 (`helm/mcp-skills-extractor-agents/`, see its own README) — the Helm chart is how
-`CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` gets used in practice, pinning a subset of tools per
+`MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS` gets used in practice, pinning a subset of tools per
 deployed pod/release rather than running all 4 in one process.

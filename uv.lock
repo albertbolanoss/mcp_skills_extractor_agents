@@ -43,47 +43,6 @@ wheels = [
 ]
 
 [[package]]
-name = "candidate-skill-agent"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "claude-agent-sdk" },
-    { name = "labs-agent-lib" },
-    { name = "langchain" },
-    { name = "langchain-openai" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "claude-agent-sdk", specifier = ">=0.2.176" },
-    { name = "labs-agent-lib", specifier = ">=0.1.0" },
-    { name = "langchain", specifier = ">=1.4.7" },
-    { name = "langchain-openai", specifier = ">=1.7.3" },
-    { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
-    { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "pydantic-settings", specifier = ">=2.14.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio", specifier = ">=1.4.1" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "ruff" },
-]
-
-[[package]]
 name = "certifi"
 version = "2026.10.23"
 source = { registry = "https://pypi.org/simple" }
@@ -856,6 +815,47 @@ wheels = [
 cli = [
     { name = "python-dotenv" },
     { name = "typer" },
+]
+
+[[package]]
+name = "mcp-skills-extractor-agents"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "claude-agent-sdk" },
+    { name = "labs-agent-lib" },
+    { name = "langchain" },
+    { name = "langchain-openai" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "claude-agent-sdk", specifier = ">=0.2.176" },
+    { name = "labs-agent-lib", specifier = ">=0.1.0" },
+    { name = "langchain", specifier = ">=1.4.7" },
+    { name = "langchain-openai", specifier = ">=1.7.3" },
+    { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
+    { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pydantic-settings", specifier = ">=2.14.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio", specifier = ">=1.4.1" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff" },
 ]
 
 [[package]]

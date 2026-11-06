@@ -1,4 +1,4 @@
-"""Candidate Skill Agent MCP server package."""
+"""MCP Skills Extractor Agents server package."""
 
 from .mcp_server import mcp, run_server
 

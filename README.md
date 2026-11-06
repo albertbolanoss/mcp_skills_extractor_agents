@@ -1,4 +1,4 @@
-# candidate-skill-agent
+# About this project
 
 An **MCP (Model Context Protocol) server** for resume/job-posting skill extraction, built on
 the `mcp` SDK v2 (`MCPServer`). It exposes 4 extraction tools and 1 coordinator prompt over
@@ -14,7 +14,7 @@ This server is the extraction piece of a larger hub-and-spoke system:
 | Repository | Role |
 | --- | --- |
 | [`talent-distiller-agent`](https://github.com/albertbolanoss/talent_distiller_agent) | Uploads resumes/job postings and runs the coordinator workflow. |
-| **`candidate-skill-agent`** (this repo) | MCP server exposing the specialized extraction tools used above. |
+| **`mcp-skills-extractor-agents`** (this repo) | MCP server exposing the specialized extraction tools used above. |
 | [`labs-agent-lib`](https://github.com/albertbolanoss/labs-agent-lib) | Shared Claude Agent SDK config/logging used by both. |
 
 > **Standalone for now.** This server isn't registered with `talent-distiller-agent` yet —
@@ -36,7 +36,7 @@ a plain virtual environment with `pip`.
 Every tool is backed by a real Claude Agent SDK agent — see "Configuring the .env file" below
 for the credentials they need to actually run.
 
-Set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS=extract_technical_skills,extract_certifications` (or
+Set `MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS=extract_technical_skills,extract_certifications` (or
 any subset) to restrict this server to only those tools. Unset (the default) registers all 4.
 
 Every tool also accepts an optional `correlation_id` argument, propagated by the coordinator
@@ -95,7 +95,7 @@ python -m venv .venv
 pip install -r requirements.txt
 pip install -r requirements-dev.txt   # optional: only needed to run tests/lint
 
-# Install the project itself (registers the candidate-skill-agent entrypoint)
+# Install the project itself (registers the mcp-skills-extractor-agents entrypoint)
 pip install .
 ```
 
@@ -123,10 +123,10 @@ Plus this server's own settings:
 
 | Variable | Description |
 | --- | --- |
-| `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` | Comma-separated tool names to restrict this server to. Unset registers all 4 — see "Tools" above. |
-| `CANDIDATE_SKILL_AGENT_OBSERVABILITY_ENABLED` | Master on/off switch for the prompt log and agent transcript (see [`documentation/prompt_log_and_agent_transcript.md`](./documentation/prompt_log_and_agent_transcript.md)). Defaults to `true`. |
-| `CANDIDATE_SKILL_AGENT_PROMPT_LOG_DIR` | Directory where prompt-log JSONL files are written. Defaults to `documentation/prompt_log`. |
-| `CANDIDATE_SKILL_AGENT_AGENT_TRANSCRIPT_DIR` | Directory where agent-transcript JSONL files are written. Defaults to `documentation/agent_transcript`. |
+| `MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS` | Comma-separated tool names to restrict this server to. Unset registers all 4 — see "Tools" above. |
+| `MCP_SKILLS_EXTRACTOR_AGENTS_OBSERVABILITY_ENABLED` | Master on/off switch for the prompt log and agent transcript (see [`documentation/prompt_log_and_agent_transcript.md`](./documentation/prompt_log_and_agent_transcript.md)). Defaults to `true`. |
+| `MCP_SKILLS_EXTRACTOR_AGENTS_PROMPT_LOG_DIR` | Directory where prompt-log JSONL files are written. Defaults to `documentation/prompt_log`. |
+| `MCP_SKILLS_EXTRACTOR_AGENTS_AGENT_TRANSCRIPT_DIR` | Directory where agent-transcript JSONL files are written. Defaults to `documentation/agent_transcript`. |
 
 `.env` is gitignored — never commit it. Without a real Portkey/Anthropic credential, the
 server starts fine, but every tool call fails once it reaches the model.
@@ -150,7 +150,7 @@ uv run python -m mcp_skills_extractor_agents.main --protocol sse  --port 8000  #
 
 python -m mcp_skills_extractor_agents.main --protocol http --port 8000
 # or, once `pip install .` has registered the entrypoint:
-candidate-skill-agent --protocol http --port 8000
+mcp-skills-extractor-agents --protocol http --port 8000
 ```
 
 > SSE is kept for parity with the three transports but is considered **legacy** in `mcp` v2
@@ -198,7 +198,7 @@ npx @modelcontextprotocol/inspector
 In the Inspector UI: **Transport Type** `STDIO` (it spawns the server itself), or
 `Streamable HTTP` with **URL** `http://127.0.0.1:8000/mcp` if you started the server with
 `--protocol http`. Click **List Tools** to see every tool registered (or the subset from
-`CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS`).
+`MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS`).
 
 ## More
 

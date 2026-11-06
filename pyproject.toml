@@ -1,5 +1,5 @@
 [project]
-name = "candidate-skill-agent"
+name = "mcp-skills-extractor-agents"
 version = "0.1.0"
 description = "An MCP (Model Context Protocol) server exposing resume reading and skill-extraction tools/prompts over stdio, HTTP and SSE."
 readme = "README.md"
@@ -23,11 +23,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/albertbolanoss/candidate-skill-agent"
-Repository = "https://github.com/albertbolanoss/candidate-skill-agent"
+Homepage = "https://github.com/albertbolanoss/mcp-skills-extractor-agents"
+Repository = "https://github.com/albertbolanoss/mcp-skills-extractor-agents"
 
 [project.scripts]
-candidate-skill-agent = "mcp_skills_extractor_agents.main:main"
+mcp-skills-extractor-agents = "mcp_skills_extractor_agents.main:main"
 
 [[tool.uv.index]]
 name = "testpypi"

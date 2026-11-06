@@ -7,7 +7,7 @@ metadata:
 data:
   {{- if .Values.config.activeTools }}
   # Pins this release to a subset of extraction tools - see `config.activeTools` in values.yaml.
-  CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS: {{ .Values.config.activeTools | join "," | quote }}
+  MCP_SKILLS_EXTRACTOR_AGENTS_ACTIVE_TOOLS: {{ .Values.config.activeTools | join "," | quote }}
   {{- end }}
 
   # --- labs_agent_lib.AgentSettings ---

@@ -1,4 +1,4 @@
-"""MCP resources exposed by the Candidate Skill Agent server."""
+"""MCP resources exposed by the MCP Skills Extractor Agents server."""
 
 from .common_certifications import (
     COMMON_CERTIFICATIONS,

@@ -36,6 +36,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PORT=8000
 
+RUN mkdir -p /app/documentation/prompt_log /app/documentation/agent_transcript \
+    && chown -R appuser:appuser /app/documentation
+
 USER appuser
 
 EXPOSE 8000
@@ -48,7 +51,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 # Split as ENTRYPOINT + CMD (not one combined CMD) so callers - including the Helm chart,
 # which only overrides `args` - can replace just the flags without needing to also repeat
 # the binary name.
-ENTRYPOINT ["candidate-skill-agent"]
+ENTRYPOINT ["mcp-skills-extractor-agents"]
 
 # stdio (the CLI default) doesn't make sense in a long-running container, so default to
 # streamable HTTP bound to all interfaces; the Helm chart overrides these via container args.
