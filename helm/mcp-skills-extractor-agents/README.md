@@ -88,13 +88,13 @@ resource it creates (`<release>-mcp-skills-extractor-agents`) unless you also se
 Each release needs its own credential too (every pod runs its own Claude Agent SDK agent):
 
 ```sh
-helm install skill-agent-technical ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_technical_skills}" --set fullnameOverride=skill-agent-technical --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
+helm install skill-agent-technical ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_technical_skills}" --set fullnameOverride=skill-agent-technical --set image.tag="0.1.1" --set secrets.portkeyApiKey=**
 
-helm install skill-agent-soft ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_soft_skills}" --set fullnameOverride=skill-agent-soft --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
+helm install skill-agent-soft ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_soft_skills}" --set fullnameOverride=skill-agent-soft --set image.tag="0.1.1" --set secrets.portkeyApiKey=**
 
-helm install skill-agent-certifications ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_certifications}" --set fullnameOverride=skill-agent-certifications --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
+helm install skill-agent-certifications ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_certifications}" --set fullnameOverride=skill-agent-certifications --set image.tag="0.1.1" --set secrets.portkeyApiKey=**
 
-helm install skill-agent-languages ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_languages}" --set fullnameOverride=skill-agent-languages --set image.tag="0.1.1" --set secrets.portkeyApiKey=Ny8XFxsBNZ5O6omrZcvLE7JODo4a
+helm install skill-agent-languages ./helm/mcp-skills-extractor-agents --set config.activeTools="{extract_languages}" --set fullnameOverride=skill-agent-languages --set image.tag="0.1.1" --set secrets.portkeyApiKey=**
 ```
 
 Each release gets its own `Service` (named after the release, via the chart's fullname
