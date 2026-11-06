@@ -29,10 +29,12 @@ uv run ruff check                                                          # lin
 uv run ruff format                                                        # format
 ```
 
-Requires Python >= 3.14. `labs-agent-lib` resolves from TestPyPI (declared in `pyproject.toml`
-via `[tool.uv.sources]`) since it isn't on the real PyPI yet. Without a real
-Portkey/Anthropic credential in `.env` (copy from `.env.sample`), the server starts fine but
-every tool call fails once it reaches the model.
+Requires Python >= 3.14. `labs-agent-lib` is a normal dependency resolved from the real PyPI
+(`>=0.1.0`, now published there). `pyproject.toml` still declares a `testpypi`
+`[[tool.uv.index]]` (`explicit = true`) but nothing currently points at it via
+`[tool.uv.sources]` — it's kept only to rehearse future prereleases there before a real
+release. Without a real Portkey/Anthropic credential in `.env` (copy from `.env.sample`), the
+server starts fine but every tool call fails once it reaches the model.
 
 Test conventions (naming, Arrange/Act/Assert structure, fake-patching style, 100% coverage
 requirement) are fully specified in `.claude/rules/testing.md` — read it before writing or

@@ -97,14 +97,24 @@ the initial ask, attempt 2+ are self-correction turns):
 | `retry` | Every time validation fails and a self-correction turn is queued | `attempt`, `attempts`, `error` |
 | `session_end` | Once, on success or once every attempt is exhausted | `is_error`, `result` (on success) or `error` (on failure) |
 
-Source: `src/mcp_skills_extractor_agents/observability/` -
-`prompt_log.py` / `agent_transcript.py` (the two writers, same shape as the sibling
-repo's), `_jsonl_writer.py` (shared JSONL-append helper), and `tool_observability.py`
-(`ToolObservability`, a small per-call recorder that wires both writers so the 4
-near-identical tool files in `server/tools/` are instrumented identically - `log_attempt_prompt`,
-`log_attempt_response`, `log_retry`, `log_success`, `log_failure` - without duplicating the
-JSONL-writing logic 4 times). Each tool's retry loop (`_ask` + the `try`/`except` around
-`_parse_*`) already was the shared validate/self-correct/fail pattern described in
+The two writer classes (`PromptLogWriter`, `AgentTranscriptWriter`) are **centralized in
+`labs_agent_lib.observability`** (`labs-agent-lib`, the shared package) - not in this
+repo - because `talent_distiller_agent`'s Coordinator needs the exact same JSONL
+mechanics and event schema, just keyed one file per plain `{correlation_id}` instead of
+per `{correlation_id}__{tool_name}` (see that repo's own
+`documentation/prompt_log_and_agent_transcript.md` for why). Each project still supplies
+its *own* settings object (`SkillAgentSettings.observability_enabled`/`prompt_log_dir`/
+`agent_transcript_dir`) and a `service` name at construction time - nothing about the
+`CANDIDATE_SKILL_AGENT_*` env vars moved.
+
+What **does** stay local to this repo is `src/mcp_skills_extractor_agents/observability/tool_observability.py`
+(`ToolObservability`) - a small per-call recorder that constructs the shared writers with
+`service="mcp_skills_extractor_agents", key_by_agent=True` and exposes the 5 methods each
+tool file's retry loop needs (`log_attempt_prompt`, `log_attempt_response`, `log_retry`,
+`log_success`, `log_failure`), so the 4 near-identical tool files in `server/tools/` are
+instrumented identically without duplicating that wiring 4 times. Each tool's retry loop
+(`_ask` + the `try`/`except` around `_parse_*`) already was the shared
+validate/self-correct/fail pattern described in
 `documentation/design/mcp_skills_extractor_agents_architecture.mmd` in the sibling repo;
 this feature adds a durable line next to every step of that loop without changing its
 behavior.
@@ -138,3 +148,12 @@ these events to a persistent or centralized sink (e.g. a mounted volume, an obje
 or an OpenTelemetry/log-aggregation backend - the `mcp` SDK already ships an unused
 `OpenTelemetryMiddleware` that could be wired in later) is future work, not implemented
 here.
+
+## 8. Depending on `labs-agent-lib`
+
+`labs-agent-lib>=0.1.0` (the real, production PyPI release - independently versioned
+from its TestPyPI history, which already had this same observability module at `0.5.0`)
+is required; earlier real-PyPI releases don't exist, since `0.1.0` was its first
+production publish. No `[tool.uv.sources]` override is needed - `pyproject.toml`
+resolves it from the default index. The `testpypi` index entry is kept only for testing
+future prereleases there before cutting a real release.

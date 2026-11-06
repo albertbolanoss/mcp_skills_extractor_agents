@@ -1,16 +1,18 @@
 """Per-tool-call observability recorder.
 
-Wires the prompt log and agent transcript writers for one extraction-tool invocation,
-so the 4 near-identical tool files in `server/tools/` can be instrumented identically
-without duplicating the JSONL-writing logic in each of them.
+Wires the shared `labs_agent_lib.observability` writers for one extraction-tool
+invocation, so the 4 near-identical tool files in `server/tools/` can be instrumented
+identically without duplicating writer-construction logic in each of them. The writers
+themselves (JSONL mechanics + event schema) are centralized in `labs-agent-lib`, shared
+with the sibling `talent_distiller_agent` coordinator - see
+`documentation/prompt_log_and_agent_transcript.md`.
 """
 
 from typing import Any
 
-from mcp_skills_extractor_agents.settings import SkillAgentSettings
+from labs_agent_lib import AgentTranscriptWriter, PromptLogWriter
 
-from .agent_transcript import AgentTranscriptWriter
-from .prompt_log import PromptLogWriter
+SERVICE_NAME = "mcp_skills_extractor_agents"
 
 
 class ToolObservability:
@@ -18,7 +20,7 @@ class ToolObservability:
 
     def __init__(
         self,
-        settings: SkillAgentSettings,
+        settings: Any,
         *,
         tool_name: str,
         correlation_id: str,
@@ -29,14 +31,17 @@ class ToolObservability:
         self.correlation_id = correlation_id
         self.model = model
         self.system_prompt = system_prompt
-        self._prompt_log = PromptLogWriter(settings)
-        self._transcript = AgentTranscriptWriter(settings)
+        # key_by_agent=True: up to 4 extraction tools can log under the same
+        # correlation_id concurrently (the coordinator fans them out in one turn), so
+        # each tool gets its own file instead of interleaving writes into a shared one.
+        self._prompt_log = PromptLogWriter(settings, service=SERVICE_NAME, key_by_agent=True)
+        self._transcript = AgentTranscriptWriter(settings, service=SERVICE_NAME, key_by_agent=True)
 
     def log_attempt_prompt(self, *, prompt: str, attempt: int) -> None:
         """Call right before `_ask(client, prompt)` on every attempt."""
         self._prompt_log.log_prompt(
             correlation_id=self.correlation_id,
-            tool_name=self.tool_name,
+            agent=self.tool_name,
             model=self.model,
             system_prompt_name=self.tool_name,
             user_prompt=prompt,
