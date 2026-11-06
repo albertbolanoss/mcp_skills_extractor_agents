@@ -15,11 +15,14 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
+    ResultMessage,
     TextBlock,
 )
 from labs_agent_lib import get_agent_environment, get_agent_settings, get_logger
 from pydantic import BaseModel, ValidationError
 
+from ...observability import ToolObservability
+from ...settings import get_skill_agent_settings
 from ..mcp_server import mcp
 from ..resources.common_seniority_levels import (
     COMMON_SENIORITY_LEVELS,
@@ -129,15 +132,19 @@ def _parse_skills(raw_text: str, doc_type: str) -> list[dict]:
     return results
 
 
-async def _ask(client: ClaudeSDKClient, prompt: str) -> str:
+async def _ask(client: ClaudeSDKClient, prompt: str) -> tuple[str, str | None]:
+    """Sends `prompt` and drains the response, returning `(text, session_id)`."""
     await client.query(prompt)
     text_parts = []
+    session_id: str | None = None
     async for message in client.receive_response():
         if isinstance(message, AssistantMessage):
             text_parts.extend(
                 block.text for block in message.content if isinstance(block, TextBlock)
             )
-    return "".join(text_parts)
+        elif isinstance(message, ResultMessage):
+            session_id = message.session_id
+    return "".join(text_parts), session_id
 
 
 @mcp.tool()
@@ -145,6 +152,7 @@ async def extract_soft_skills(
     content: str,
     doc_type: Literal["resume", "job_posting"],
     max_retries: int = 2,
+    correlation_id: str = "",
 ) -> list[dict]:
     """
     Extracts soft skills from resume or job-posting text, using a Claude Agent SDK
@@ -158,6 +166,9 @@ async def extract_soft_skills(
         content: Plain text of the resume or job posting to analyze.
         doc_type: "resume" or "job_posting".
         max_retries: Max correction attempts if the agent's JSON output fails validation.
+        correlation_id: Cross-service id propagated by the coordinator so this call's
+            prompt-log/transcript entries can be joined with the coordinator's own run.
+            Empty when the caller doesn't provide one (e.g. manual MCP Inspector calls).
     """
     logger.info(
         "Running extract_soft_skills for doc_type=%s (max_retries=%d)",
@@ -171,6 +182,13 @@ async def extract_soft_skills(
         model=_AGENT_DEFINITION.model,
         tools=_AGENT_DEFINITION.tools,
     )
+    observability = ToolObservability(
+        get_skill_agent_settings(),
+        tool_name="extract_soft_skills",
+        correlation_id=correlation_id,
+        model=_AGENT_DEFINITION.model,
+        system_prompt=_AGENT_DEFINITION.prompt,
+    )
 
     attempts = max(max_retries, 0) + 1
     prompt = _build_user_prompt(content, doc_type)
@@ -178,9 +196,13 @@ async def extract_soft_skills(
 
     async with ClaudeSDKClient(options=options) as client:
         for attempt in range(attempts):
-            raw_text = await _ask(client, prompt)
+            observability.log_attempt_prompt(prompt=prompt, attempt=attempt + 1)
+            raw_text, session_id = await _ask(client, prompt)
+            observability.log_attempt_response(text=raw_text, session_id=session_id)
             try:
-                return _parse_skills(raw_text, doc_type)
+                result = _parse_skills(raw_text, doc_type)
+                observability.log_success(result=result)
+                return result
             except (json.JSONDecodeError, ValidationError, ValueError) as exc:
                 last_error = exc
                 logger.warning(
@@ -190,7 +212,9 @@ async def extract_soft_skills(
                     exc,
                 )
                 prompt = _CORRECTION_PROMPT.format(error=exc)
+                observability.log_retry(attempt=attempt + 1, attempts=attempts, error=str(exc))
 
+    observability.log_failure(error=str(last_error))
     raise RuntimeError(
         f"extract_soft_skills: agent failed to produce valid JSON after "
         f"{attempts} attempt(s): {last_error}"

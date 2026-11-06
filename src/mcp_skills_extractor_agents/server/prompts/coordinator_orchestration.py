@@ -13,6 +13,7 @@ Your sole responsibility is to orchestrate MCP tool executions based on the prov
 - **Extraction Fan-Out (Parallel Execution)**:
    - Invoke ALL extraction tools listed in `<pending_tools>` simultaneously in a single turn, passing `<resume_path>` to each tool.
      Available extraction tools: {", ".join(EXTRACTION_TOOL_NAMES)}.
+   - Also pass the value of `<correlation_id>`, if provided, as the `correlation_id` argument on every extraction tool call, unchanged, so both services can be traced as one run.
    - Never invoke any tool that is not explicitly listed in `<pending_tools>`.
 </execution_protocol>
 

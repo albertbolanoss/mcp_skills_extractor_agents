@@ -18,7 +18,7 @@ dependencies = [
     "mcp[cli]>=2.3.0",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
-    "labs-agent-lib>=0.4.2",
+    "labs-agent-lib>=0.1.0",
     "claude-agent-sdk>=0.2.176",
 ]
 
@@ -34,9 +34,9 @@ name = "testpypi"
 url = "https://test.pypi.org/simple/"
 explicit = true
 
-[tool.uv.sources]
-# labs-agent-lib isn't on the real PyPI yet - resolve it from TestPyPI explicitly.
-labs-agent-lib = { index = "testpypi" }
+# labs-agent-lib>=0.1.0 is now published on the real PyPI (no [tool.uv.sources] override
+# needed - that's the default index). The testpypi index above is kept only for testing
+# future prereleases there before a real release; nothing currently points at it.
 
 [dependency-groups]
 dev = [

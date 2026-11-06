@@ -39,6 +39,10 @@ for the credentials they need to actually run.
 Set `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS=extract_technical_skills,extract_certifications` (or
 any subset) to restrict this server to only those tools. Unset (the default) registers all 4.
 
+Every tool also accepts an optional `correlation_id` argument, propagated by the coordinator
+so this call's prompt-log/transcript entries can be joined with the coordinator's own run —
+see [`documentation/prompt_log_and_agent_transcript.md`](./documentation/prompt_log_and_agent_transcript.md).
+
 ## Prompts
 
 | Prompt | Description |
@@ -115,11 +119,14 @@ Every tool call goes through a real Claude Agent SDK agent, configured by `labs-
 | `LABS_AGENT_LIB_PORTKEY_VIRTUAL` | Portkey provider/credential alias (e.g. `aws-bedrock-use2`) — optional. |
 | `LABS_AGENT_LIB_ANTHROPIC_BASE_URL` / `LABS_AGENT_LIB_ANTHROPIC_API_KEY` | Anthropic API URL and key — required when `PROVIDER=anthropic`. |
 
-Plus this server's own tool-selection setting:
+Plus this server's own settings:
 
 | Variable | Description |
 | --- | --- |
 | `CANDIDATE_SKILL_AGENT_ACTIVE_TOOLS` | Comma-separated tool names to restrict this server to. Unset registers all 4 — see "Tools" above. |
+| `CANDIDATE_SKILL_AGENT_OBSERVABILITY_ENABLED` | Master on/off switch for the prompt log and agent transcript (see [`documentation/prompt_log_and_agent_transcript.md`](./documentation/prompt_log_and_agent_transcript.md)). Defaults to `true`. |
+| `CANDIDATE_SKILL_AGENT_PROMPT_LOG_DIR` | Directory where prompt-log JSONL files are written. Defaults to `documentation/prompt_log`. |
+| `CANDIDATE_SKILL_AGENT_AGENT_TRANSCRIPT_DIR` | Directory where agent-transcript JSONL files are written. Defaults to `documentation/agent_transcript`. |
 
 `.env` is gitignored — never commit it. Without a real Portkey/Anthropic credential, the
 server starts fine, but every tool call fails once it reaches the model.
@@ -197,6 +204,9 @@ In the Inspector UI: **Transport Type** `STDIO` (it spawns the server itself), o
 
 See **[SETUP.md](SETUP.md)** for the full MCP Inspector walkthrough (all three transports)
 and registering the server with Claude Code/Desktop, **[CLAUDE.md](CLAUDE.md)** for the
-architecture overview, **[MCP.md](MCP.md)** for publishing this project as a package, and
+architecture overview, **[MCP.md](MCP.md)** for publishing this project as a package,
+**[documentation/prompt_log_and_agent_transcript.md](documentation/prompt_log_and_agent_transcript.md)**
+for the prompt log / agent transcript observability feature shared with
+`talent-distiller-agent`, and
 **[helm/mcp-skills-extractor-agents/README.md](helm/mcp-skills-extractor-agents/README.md)**
 for deploying this server to Kubernetes.
