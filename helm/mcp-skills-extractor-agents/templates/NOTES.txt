@@ -1,0 +1,37 @@
+{{ .Chart.Name }} has been installed.
+
+1. Check pod status:
+     kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. Reach the service:
+{{- if eq .Values.service.type "NodePort" }}
+     minikube service {{ include "mcp-skills-extractor-agents.fullname" . }} --url
+{{- else if eq .Values.service.type "LoadBalancer" }}
+     kubectl get svc {{ include "mcp-skills-extractor-agents.fullname" . }} -w
+{{- else }}
+     kubectl port-forward svc/{{ include "mcp-skills-extractor-agents.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
+
+3. Point an MCP client (e.g. the MCP Inspector, or another agent's *_SKILL_AGENT_MCP_URL
+   setting) at the streamable-HTTP endpoint:
+     http://<service-url>/mcp
+
+{{- if .Values.config.activeTools }}
+
+NOTE: this release only registers the following tools (see `config.activeTools`):
+  {{ .Values.config.activeTools | join ", " }}
+{{- else }}
+
+NOTE: this release registers every extraction tool (`config.activeTools` is unset). To run a
+subset of tools as an independent deployment instead, install another release with
+`--set config.activeTools={extract_technical_skills}` (or any other subset) - see this chart's
+README for examples.
+{{- end }}
+
+{{- $hasKey := or .Values.secrets.portkeyApiKey .Values.secrets.anthropicApiKey }}
+{{- if not $hasKey }}
+
+WARNING: secrets.portkeyApiKey / secrets.anthropicApiKey are both empty. Every extraction
+tool runs a real Claude Agent SDK agent - without a real credential, every tool call will
+fail. Set one with `--set secrets.portkeyApiKey=...` (see this chart's README, "Credentials").
+{{- end }}
