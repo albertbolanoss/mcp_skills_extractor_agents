@@ -24,9 +24,9 @@ docker build -t mcp-skills-extractor-agents:local .
 docker run --rm -p 8000:8000 mcp-skills-extractor-agents:local
 
 # Build and publish to a registry
-docker build -t mcp-skills-extractor-agents:0.1.0 .
-docker tag mcp-skills-extractor-agents:0.1.0 luigisamurai/mcp-skills-extractor-agents:0.1.0
-docker push luigisamurai/mcp-skills-extractor-agents:0.1.0
+docker build -t mcp-skills-extractor-agents:0.1.1 .
+docker tag mcp-skills-extractor-agents:0.1.1 luigisamurai/mcp-skills-extractor-agents:0.1.1
+docker push luigisamurai/mcp-skills-extractor-agents:0.1.1
 ```
 
 The image's default command runs the `mcp-skills-extractor-agents` entrypoint over streamable HTTP
