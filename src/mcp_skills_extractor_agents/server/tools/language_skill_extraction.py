@@ -179,6 +179,13 @@ async def extract_languages(
         system_prompt=_AGENT_DEFINITION.prompt,
         model=_AGENT_DEFINITION.model,
         tools=_AGENT_DEFINITION.tools,
+        # The taxonomy is already handed to the model verbatim and normalize_*() is a
+        # deterministic second pass, so this is a lookup/classification task that
+        # doesn't need the SDK's default deep-reasoning effort - which was costing
+        # most of this tool's latency in invisible thinking tokens. "medium" is the
+        # floor validated (against extract_technical_skills, the densest of the 4) to
+        # keep full enumeration while still cutting most of the latency.
+        effort="medium",
     )
     observability = ToolObservability(
         get_skill_agent_settings(),
