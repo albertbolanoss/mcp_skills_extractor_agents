@@ -181,6 +181,13 @@ async def extract_technical_skills(
         system_prompt=_AGENT_DEFINITION.prompt,
         model=_AGENT_DEFINITION.model,
         tools=_AGENT_DEFINITION.tools,
+        # The taxonomy is already handed to the model verbatim and normalize_*() is a
+        # deterministic second pass, so this is a lookup/classification task that
+        # doesn't need the SDK's default deep-reasoning effort - which was costing
+        # most of this tool's latency in invisible thinking tokens. "low" measurably
+        # hurt recall on dense resumes (dropped ~25% of real skills); "medium" is the
+        # floor that keeps full enumeration while still cutting most of the latency.
+        effort="medium",
     )
     observability = ToolObservability(
         get_skill_agent_settings(),

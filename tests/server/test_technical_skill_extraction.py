@@ -60,18 +60,24 @@ class _FakeSkillAgentSettings:
 
 def _mock_agent(
     monkeypatch, responses: list[str], include_non_assistant: bool = False
-) -> None:
-    monkeypatch.setattr(
-        module,
-        "ClaudeSDKClient",
-        lambda options=None: _FakeClient(responses, options, include_non_assistant),
-    )
+) -> list[_FakeClient]:
+    """Wires the fake client/settings into `module` and returns the created clients,
+    one per `ClaudeSDKClient(...)` call, so a test can inspect `.options`."""
+    clients: list[_FakeClient] = []
+
+    def _make_client(options=None):
+        client = _FakeClient(responses, options, include_non_assistant)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(module, "ClaudeSDKClient", _make_client)
     monkeypatch.setattr(
         module, "get_agent_environment", lambda settings: SimpleNamespace(env={})
     )
     monkeypatch.setattr(
         module, "get_skill_agent_settings", lambda: _FakeSkillAgentSettings()
     )
+    return clients
 
 
 async def test_extract_technical_skills_resume_omits_required(monkeypatch):
@@ -161,3 +167,15 @@ async def test_extract_technical_skills_raises_after_exhausting_retries(monkeypa
     # Act / Assert
     with pytest.raises(RuntimeError):
         await extract_technical_skills("whatever", "resume", max_retries=1)
+
+
+async def test_extract_technical_skills_uses_low_effort(monkeypatch):
+    # Arrange
+    agent_json = json.dumps([{"skill": "Go", "seniority_level": "Mid"}])
+    clients = _mock_agent(monkeypatch, [agent_json])
+
+    # Act
+    await extract_technical_skills("Go developer", "resume")
+
+    # Assert
+    assert clients[0].options.effort == "medium"
